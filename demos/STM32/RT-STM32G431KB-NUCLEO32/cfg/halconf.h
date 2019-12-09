@@ -51,8 +51,9 @@
  * @brief   Enables the CAN subsystem.
  */
 #if !defined(HAL_USE_CAN) || defined(__DOXYGEN__)
-#define HAL_USE_CAN                         FALSE
+#define HAL_USE_CAN                         TRUE
 #endif
+#define STM32_CAN_USE_CAN1                  TRUE
 
 /**
  * @brief   Enables the cryptographic subsystem.
