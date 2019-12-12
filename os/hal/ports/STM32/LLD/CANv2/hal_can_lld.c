@@ -84,12 +84,12 @@ void can_lld_start(CANDriver *canp) {
     /* Enables the peripheral.*/
 #if PLATFORM_CAN_USE_CAN1 == TRUE
     if (&CAND1 == canp) {
-      rccEnableFDCAN1(true);
+      rccEnableFDCAN1(true, true);  // Stays on in sleep
     }
 #endif
   }
   /* Configures the peripheral.*/
-  SET_BIT(canp->can->CCCR, FDCAN_CCCR_INIT | FDCAN_CCCR_TEST);
+  SET_BIT(canp->can->CCCR, FDCAN_CCCR_INIT | FDCAN_CCCR_CCE);
 
 }
 

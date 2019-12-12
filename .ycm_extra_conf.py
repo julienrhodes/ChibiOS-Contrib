@@ -24,16 +24,15 @@ import ycm_core
 flags = [
     '-Wall',
     '-Wextra',
-    '-Werror',
-    '-fexceptions',
-    '-DNDEBUG',
+    '-Wundef',
+    #'-Werror',
     # THIS IS IMPORTANT! Without a "-std=<something>" flag, clang won't know which
     # language to use when compiling headers. So it will guess. Badly. So C++
     # headers will be compiled as C headers. You don't want that so ALWAYS specify
     # a "-std=<something>".
     # For a C project, you would set this to something like 'c99' instead of
     # 'c++11'.
-    '-std=c14',
+    '-std=gnu11',
     # ...and the same thing goes for the magic -x option which specifies the
     # language that the files to be compiled are written in. This is mostly
     # relevant for c++ headers.
@@ -72,7 +71,7 @@ flags = [
     '-I', '/home/julien/Documents/git/3rd/ChibiOS-RT/test/lib',
     '-I', '/home/julien/Documents/git/3rd/ChibiOS-RT/test/rt/source/test',
     '-I', '/home/julien/Documents/git/3rd/ChibiOS-RT/test/oslib/source/test',
-    '-I', 'cfg',
+    '-I', '/home/julien/Documents/git/3rd/ChibiOS-Contrib/demos/STM32/RT-STM32G431KB-NUCLEO32/cfg',
 ]
 
 
