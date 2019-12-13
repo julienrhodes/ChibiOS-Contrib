@@ -67,7 +67,10 @@ void can_lld_init(void) {
 #if PLATFORM_CAN_USE_CAN1 == TRUE
   /* Driver initialization.*/
   canObjectInit(&CAND1);
-  CAND1.can = CAN1;
+  CAND1.can = FDCAN1;
+
+  can_lld_set_filters(CANDriver *canp,);
+
 #endif
 }
 
@@ -84,13 +87,35 @@ void can_lld_start(CANDriver *canp) {
     /* Enables the peripheral.*/
 #if PLATFORM_CAN_USE_CAN1 == TRUE
     if (&CAND1 == canp) {
-      rccEnableFDCAN1(true, true);  // Stays on in sleep
+      rccEnableFDCAN1(true);  // Stays on in sleep
     }
 #endif
   }
   /* Configures the peripheral.*/
-  SET_BIT(canp->can->CCCR, FDCAN_CCCR_INIT | FDCAN_CCCR_CCE);
+  CLEAR_BIT(canp->can->CCCR, FDCAN_CCCR_CSR);
+  // Wait for clock stop ack to de-assert
+  while(READ_BIT(canp->can->CCCR,FDCAN_CCCR_CSA)) {
+    osalThreadSleepS(1);
+  }
+  SET_BIT(canp->can->CCCR, FDCAN_CCCR_INIT);
+  while(READ_BIT(canp->can->CCCR,FDCAN_CCCR_INIT) != 1) {
+    osalThreadSleepS(1);
+  }
+  SET_BIT(canp->can->CCCR, FDCAN_CCCR_CCE);
+  FDCAN_CONFIG->CKDIV = 0;
+  SET_BIT(canp->can->CCCR, FDCAN_CCCR_DAR);
 
+  // Internal loopback mode
+  CLEAR_BIT(canp->can->CCCR, FDCAN_CCCR_ASM);
+  SET_BIT(canp->can->CCCR, FDCAN_CCCR_TEST | FDCAN_CCCR_MON);
+  SET_BIT(canp->can->TEST, FDCAN_TEST_LBCK);
+
+  // Start it up
+  CLEAR_BIT(canp->can->CCCR, FDCAN_CCCR_CCE);
+  CLEAR_BIT(canp->can->CCCR, FDCAN_CCCR_INIT);
+  while(READ_BIT(canp->can->CCCR,FDCAN_CCCR_INIT) == 1) {
+    osalThreadSleepS(1);
+  }
 }
 
 /**
@@ -103,11 +128,13 @@ void can_lld_start(CANDriver *canp) {
 void can_lld_stop(CANDriver *canp) {
 
   if (canp->state == CAN_READY) {
+    CLEAR_REG(canp->can->IE);
     /* Resets the peripheral.*/
 
     /* Disables the peripheral.*/
 #if PLATFORM_CAN_USE_CAN1 == TRUE
     if (&CAND1 == canp) {
+      rccDisableFDCAN1();  // Stays on in sleep
 
     }
 #endif
