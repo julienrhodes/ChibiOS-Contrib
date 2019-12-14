@@ -95,14 +95,22 @@ typedef void (*can_callback_t)(CANDriver *canp, uint32_t flags);
  */
 typedef struct {
   /*lint -save -e46 [6.1] Standard types are fine too.*/
-  uint8_t                   DLC:4;          /**< @brief Data length.        */
+  uint8_t                   ESI:1;          /**< @brief .        */
+  uint8_t                   XTD:1;          /**< @brief .        */
   uint8_t                   RTR:1;          /**< @brief Frame type.         */
-  uint8_t                   IDE:1;          /**< @brief Identifier type.    */
   union {
     uint32_t                SID:11;         /**< @brief Standard identifier.*/
     uint32_t                EID:29;         /**< @brief Extended identifier.*/
     uint32_t                _align1;
   };
+  uint8_t                   MM:8;           /**< @brief .         */
+  uint8_t                   EFC:1;          /**< @brief .         */
+  uint8_t                   _R1:1;          /**< @brief .         */
+  uint8_t                   FDF:1;          /**< @brief .         */
+  uint8_t                   BPS:1;          /**< @brief .         */
+  uint8_t                   DLC:4;          /**< @brief .         */
+  uint16_t                   _R2:16;        /**< @brief .         */
+
   /*lint -restore*/
   union {
     uint8_t                 data8[8];       /**< @brief Frame data.         */
@@ -118,16 +126,21 @@ typedef struct {
  */
 typedef struct {
   /*lint -save -e46 [6.1] Standard types are fine too.*/
-  uint8_t                   FMI;            /**< @brief Filter id.          */
-  uint16_t                  TIME;           /**< @brief Time stamp.         */
-  uint8_t                   DLC:4;          /**< @brief Data length.        */
+  uint8_t                   ESI:1;          /**< @brief .        */
+  uint8_t                   XTD:1;          /**< @brief .        */
   uint8_t                   RTR:1;          /**< @brief Frame type.         */
-  uint8_t                   IDE:1;          /**< @brief Identifier type.    */
   union {
     uint32_t                SID:11;         /**< @brief Standard identifier.*/
     uint32_t                EID:29;         /**< @brief Extended identifier.*/
     uint32_t                _align1;
   };
+  uint8_t                   ANMF:1;         /**< @brief .         */
+  uint8_t                   FIDX:7;         /**< @brief .         */
+  uint8_t                   _R1:1;          /**< @brief .         */
+  uint8_t                   FDF:1;          /**< @brief .         */
+  uint8_t                   BRS:1;          /**< @brief .         */
+  uint8_t                   DLC:4;          /**< @brief .         */
+  uint16_t                  RXTS:16;        /**< @brief .         */
   /*lint -restore*/
   union {
     uint8_t                 data8[8];       /**< @brief Frame data.         */
