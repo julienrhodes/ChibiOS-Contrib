@@ -95,21 +95,27 @@ typedef void (*can_callback_t)(CANDriver *canp, uint32_t flags);
  */
 typedef struct {
   /*lint -save -e46 [6.1] Standard types are fine too.*/
-  uint8_t                   ESI:1;          /**< @brief .        */
-  uint8_t                   XTD:1;          /**< @brief .        */
-  uint8_t                   RTR:1;          /**< @brief Frame type.         */
   union {
-    uint32_t                SID:11;         /**< @brief Standard identifier.*/
-    uint32_t                EID:29;         /**< @brief Extended identifier.*/
-    uint32_t                _align1;
-  };
-  uint8_t                   MM:8;           /**< @brief .         */
-  uint8_t                   EFC:1;          /**< @brief .         */
-  uint8_t                   _R1:1;          /**< @brief .         */
-  uint8_t                   FDF:1;          /**< @brief .         */
-  uint8_t                   BPS:1;          /**< @brief .         */
-  uint8_t                   DLC:4;          /**< @brief .         */
-  uint16_t                   _R2:16;        /**< @brief .         */
+    
+    struct {
+      uint8_t                   ESI:1;          /**< @brief .        */
+      uint8_t                   XTD:1;          /**< @brief .        */
+      uint8_t                   RTR:1;          /**< @brief Frame type.         */
+      union {
+        uint32_t                SID:11;         /**< @brief Standard identifier.*/
+        uint32_t                EID:29;         /**< @brief Extended identifier.*/
+        uint32_t                _align1;
+      };
+      uint8_t                   MM:8;           /**< @brief .         */
+      uint8_t                   EFC:1;          /**< @brief .         */
+      uint8_t                   _R1:1;          /**< @brief .         */
+      uint8_t                   FDF:1;          /**< @brief .         */
+      uint8_t                   BPS:1;          /**< @brief .         */
+      uint8_t                   DLC:4;          /**< @brief .         */
+      uint16_t                   _R2:16;        /**< @brief .         */
+    } field;
+    uint32_t                  data32[2];
+  } header;
 
   /*lint -restore*/
   union {

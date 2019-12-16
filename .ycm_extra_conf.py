@@ -38,6 +38,8 @@ flags = [
     # relevant for c++ headers.
     # For a C project, you would set this to 'c' instead of 'c++'.
     '-x', 'c',
+    #'-I', '/usr/include/newlib',
+    #'-isystem', '/usr/lib/llvm-6.0/lib/clang/6.0.0/include',
     '-I', '/home/julien/Documents/git/3rd/ChibiOS-RT/os/license',
     '-I', '/home/julien/Documents/git/3rd/ChibiOS-RT/os/common/portability/GCC',
     '-I', '/home/julien/Documents/git/3rd/ChibiOS-RT/os/common/startup/ARMCMx/compilers/GCC',
@@ -48,6 +50,7 @@ flags = [
     '-I', '/home/julien/Documents/git/3rd/ChibiOS-RT/os/hal/ports/common/ARMCMx',
     '-I', '/home/julien/Documents/git/3rd/ChibiOS-Contrib/os/hal/ports/STM32/STM32G4xx',
     '-I', '/home/julien/Documents/git/3rd/ChibiOS-RT/os/hal/ports/STM32/STM32G4xx',
+    '-I', '/home/julien/Documents/git/3rd/ChibiOS-RT/os/hal/include/hal_can.h',
     '-I', '/home/julien/Documents/git/3rd/ChibiOS-Contrib/os/hal/ports/STM32/LLD/CANv2',
     '-I', '/home/julien/Documents/git/3rd/ChibiOS-RT/os/hal/ports/STM32/LLD/DACv1',
     '-I', '/home/julien/Documents/git/3rd/ChibiOS-RT/os/hal/ports/STM32/LLD/DMAv1',
