@@ -132,28 +132,46 @@ typedef struct {
  */
 typedef struct {
   /*lint -save -e46 [6.1] Standard types are fine too.*/
-  uint8_t                   ESI:1;          /**< @brief .        */
-  uint8_t                   XTD:1;          /**< @brief .        */
-  uint8_t                   RTR:1;          /**< @brief Frame type.         */
   union {
-    uint32_t                SID:11;         /**< @brief Standard identifier.*/
-    uint32_t                EID:29;         /**< @brief Extended identifier.*/
-    uint32_t                _align1;
-  };
-  uint8_t                   ANMF:1;         /**< @brief .         */
-  uint8_t                   FIDX:7;         /**< @brief .         */
-  uint8_t                   _R1:1;          /**< @brief .         */
-  uint8_t                   FDF:1;          /**< @brief .         */
-  uint8_t                   BRS:1;          /**< @brief .         */
-  uint8_t                   DLC:4;          /**< @brief .         */
-  uint16_t                  RXTS:16;        /**< @brief .         */
-  /*lint -restore*/
+    struct {
+      uint8_t                   ESI:1;          /**< @brief .        */
+      uint8_t                   XTD:1;          /**< @brief .        */
+      uint8_t                   RTR:1;          /**< @brief Frame type.         */
+      union {
+        uint32_t                SID:11;         /**< @brief Standard identifier.*/
+        uint32_t                EID:29;         /**< @brief Extended identifier.*/
+        uint32_t                _align1;
+      };
+      uint8_t                   ANMF:1;         /**< @brief .         */
+      uint8_t                   FIDX:7;         /**< @brief .         */
+      uint8_t                   _R1:1;          /**< @brief .         */
+      uint8_t                   FDF:1;          /**< @brief .         */
+      uint8_t                   BRS:1;          /**< @brief .         */
+      uint8_t                   DLC:4;          /**< @brief .         */
+      uint16_t                  RXTS:16;        /**< @brief .         */
+    } field;
+    uint32_t                data32[2];
+  } header;
+      /*lint -restore*/
   union {
     uint8_t                 data8[8];       /**< @brief Frame data.         */
     uint16_t                data16[4];      /**< @brief Frame data.         */
     uint32_t                data32[2];      /**< @brief Frame data.         */
   };
 } CANRxFrame;
+
+typedef struct {
+  union {
+    struct {
+      uint8_t               SFT:2;
+      uint8_t               SFEC:3;
+      uint16_t              SFID1:11;
+      uint8_t               _R1:5;
+      uint16_t              SFID2:11;
+    } field;
+    uint32_t                word;
+  };
+} CANRxFilter;
 
 /**
  * @brief   Driver configuration structure.
@@ -260,7 +278,7 @@ struct CANDriver {
 /* External declarations.                                                    */
 /*===========================================================================*/
 
-#if (PLATFORM_CAN_USE_CAN1 == TRUE) && !defined(__DOXYGEN__)
+#if (STM32_CAN_USE_CAN1 == TRUE) && !defined(__DOXYGEN__)
 extern CANDriver CAND1;
 #endif
 

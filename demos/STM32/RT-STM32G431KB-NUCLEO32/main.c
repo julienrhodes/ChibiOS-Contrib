@@ -60,6 +60,18 @@ int main(void) {
    * Normal main() thread activity, in this demo it does nothing except
    * sleeping in a loop and check the button state.
    */
+  canStart(&CAND1, NULL);
+  CANTxFrame ctfp;
+  ctfp.header.field.SID = 1;
+  ctfp.header.field.XTD = 0;
+  ctfp.data32[0] = 0xdeadbeef;
+  ctfp.data32[1] = 0xdeadbeef;
+
+  CANRxFrame crfp;
+  canTryReceiveI(&CAND1, CAN_ANY_MAILBOX, &crfp);
+  canTryTransmitI(&CAND1, CAN_ANY_MAILBOX, &ctfp);
+  canTryReceiveI(&CAND1, CAN_ANY_MAILBOX, &crfp);
+
   while (true) {
    if (palReadLine(LINE_INPUT_A12)) {
       BLINK_SLEEP = 2000;

@@ -31,7 +31,7 @@
 /*===========================================================================*/
 
 #define SRAMCAN_FLS_NBR                  (28U)         /* Max. Filter List Standard Number      */
-#define SRAMCAN_FLE_NBR                  ( 8U)         /* Max. Filter List Extended Number      */
+#define SRAMCAN_FLE_NBR                  ( 0U)         /* Max. Filter List Extended Number      */
 #define SRAMCAN_RF0_NBR                  ( 3U)         /* RX FIFO 0 Elements Number             */
 #define SRAMCAN_RF1_NBR                  ( 3U)         /* RX FIFO 1 Elements Number             */
 #define SRAMCAN_TEF_NBR                  ( 3U)         /* TX Event FIFO Elements Number         */
@@ -61,7 +61,7 @@
 /**
  * @brief   CAN1 driver identifier.
  */
-#if (PLATFORM_CAN_USE_CAN1 == TRUE) || defined(__DOXYGEN__)
+#if (STM32_CAN_USE_CAN1 == TRUE) || defined(__DOXYGEN__)
 CANDriver CAND1;
 #endif
 
@@ -72,6 +72,20 @@ CANDriver CAND1;
 /*===========================================================================*/
 /* Driver local functions.                                                   */
 /*===========================================================================*/
+
+static void can_lld_set_filters(CANDriver* canp) {
+  // Set filter count to SRAMCAN_FLS_NBR, required for SRAM addressing to work
+  MODIFY_REG(canp->can->RXGFC, FDCAN_RXGFC_LSS, FDCAN_RXGFC_LSS & (SRAMCAN_FLS_NBR << FDCAN_RXGFC_LSS_Pos));
+
+  CANRxFilter filter1;
+  filter1.field.SFT = 2; // classic
+  filter1.field.SFEC = 1; //store in fifo 0
+  filter1.field.SFID1 = 0; // ID
+  filter1.field.SFID2 = 0; // Mask
+  uint32_t *addr = (uint32_t *) SRAMCAN_BASE + SRAMCAN_FLSSA;
+  //WRITE_REG((uint32_t *) *(SRAMCAN_BASE + SRAMCAN_FLSSA), filter1.word);
+  WRITE_REG(*addr, filter1.word);
+}
 
 /*===========================================================================*/
 /* Driver interrupt handlers.                                                */
@@ -209,11 +223,18 @@ void can_lld_transmit(CANDriver *canp,
   (void)canp;
   (void)mailbox;
   (void)ctfp;
-  if (ctfp->header.field.XTD) {
+  uint32_t *tx_address = (uint32_t *) (SRAMCAN_BASE + SRAMCAN_TFQSA);
+  //WRITE_REG(SRAMCAN_BASE, 0);
+  WRITE_REG(*tx_address, ctfp->header.data32[0]);
+  tx_address += 4U;
+  WRITE_REG(*tx_address, ctfp->header.data32[1]);
+  tx_address += 4U;
 
-  }
-  else {
-  }
+  WRITE_REG(*tx_address, ctfp->data32[0]);
+  tx_address += 4U;
+  WRITE_REG(*tx_address, ctfp->data32[1]);
+  tx_address += 4U;
+
 
 }
 
@@ -236,13 +257,10 @@ bool can_lld_is_rx_nonempty(CANDriver *canp, canmbx_t mailbox) {
 
   switch (mailbox) {
   case CAN_ANY_MAILBOX:
-    return false;
   case 1:
-    return false;
   case 2:
-    return false;
   default:
-    return false;
+    return (READ_BIT(canp->can->RXF0S, FDCAN_RXF0S_F0F) == 0);
   }
 }
 
@@ -262,6 +280,14 @@ void can_lld_receive(CANDriver *canp,
   (void)canp;
   (void)mailbox;
   (void)crfp;
+  uint32_t *rx_address = (uint32_t *) (SRAMCAN_BASE + SRAMCAN_RF0SA);
+  crfp->header.data32[0] = READ_REG(*rx_address); 
+  rx_address += 4U;
+  crfp->header.data32[1] = READ_REG(*rx_address); 
+  rx_address += 4U;
+  crfp->data32[0] = READ_REG(*rx_address); 
+  rx_address += 4U;
+  crfp->data32[1] = READ_REG(*rx_address); 
 
 }
 

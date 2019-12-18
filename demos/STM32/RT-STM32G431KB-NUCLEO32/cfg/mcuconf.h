@@ -118,6 +118,7 @@
  * CAN driver system settings.
  */
 
+#define STM32_CAN_USE_CAN1                  TRUE
 /*
  * DAC driver system settings.
  */
