@@ -16,7 +16,7 @@
 
 /**
  * @file    hal_can_lld.h
- * @brief   PLATFORM CAN subsystem low level driver header.
+ * @brief   STM32 CAN subsystem low level driver header.
  *
  * @addtogroup CAN
  * @{
@@ -46,7 +46,7 @@
 /*===========================================================================*/
 
 /**
- * @name    PLATFORM configuration options
+ * @name    STM32 configuration options
  * @{
  */
 /**
@@ -54,8 +54,8 @@
  * @details If set to @p TRUE the support for CAN1 is included.
  * @note    The default is @p FALSE.
  */
-#if !defined(PLATFORM_CAN_USE_CAN1) || defined(__DOXYGEN__)
-#define PLATFORM_CAN_USE_CAN1                  FALSE
+#if !defined(STM32_CAN_USE_CAN1) || defined(__DOXYGEN__)
+#define STM32_CAN_USE_CAN1                  FALSE
 #endif
 /** @} */
 
@@ -98,23 +98,23 @@ typedef struct {
   union {
     
     struct {
-      uint8_t                   ESI:1;          /**< @brief .        */
-      uint8_t                   XTD:1;          /**< @brief .        */
-      uint8_t                   RTR:1;          /**< @brief Frame type.         */
+      uint8_t               ESI:1;          /**< @brief .        */
+      uint8_t               XTD:1;          /**< @brief .        */
+      uint8_t               RTR:1;          /**< @brief Frame type.         */
       union {
-        uint32_t                SID:11;         /**< @brief Standard identifier.*/
-        uint32_t                EID:29;         /**< @brief Extended identifier.*/
-        uint32_t                _align1;
+        uint32_t            SID:11;         /**< @brief Standard identifier.*/
+        uint32_t            EID:29;         /**< @brief Extended identifier.*/
+        uint32_t            _align1;
       };
-      uint8_t                   MM:8;           /**< @brief .         */
-      uint8_t                   EFC:1;          /**< @brief .         */
-      uint8_t                   _R1:1;          /**< @brief .         */
-      uint8_t                   FDF:1;          /**< @brief .         */
-      uint8_t                   BPS:1;          /**< @brief .         */
-      uint8_t                   DLC:4;          /**< @brief .         */
-      uint16_t                   _R2:16;        /**< @brief .         */
+      uint8_t               MM:8;           /**< @brief .         */
+      uint8_t               EFC:1;          /**< @brief .         */
+      uint8_t               _R1:1;          /**< @brief .         */
+      uint8_t               FDF:1;          /**< @brief .         */
+      uint8_t               BPS:1;          /**< @brief .         */
+      uint8_t               DLC:4;          /**< @brief .         */
+      uint16_t               _R2:16;        /**< @brief .         */
     } field;
-    uint32_t                  data32[2];
+    uint32_t                data32[2];
   } header;
 
   /*lint -restore*/
@@ -134,21 +134,21 @@ typedef struct {
   /*lint -save -e46 [6.1] Standard types are fine too.*/
   union {
     struct {
-      uint8_t                   ESI:1;          /**< @brief .        */
-      uint8_t                   XTD:1;          /**< @brief .        */
-      uint8_t                   RTR:1;          /**< @brief Frame type.         */
+      uint8_t               ESI:1;          /**< @brief .        */
+      uint8_t               XTD:1;          /**< @brief .        */
+      uint8_t               RTR:1;          /**< @brief Frame type.         */
       union {
-        uint32_t                SID:11;         /**< @brief Standard identifier.*/
-        uint32_t                EID:29;         /**< @brief Extended identifier.*/
-        uint32_t                _align1;
+        uint32_t            SID:11;         /**< @brief Standard identifier.*/
+        uint32_t            EID:29;         /**< @brief Extended identifier.*/
+        uint32_t            _align1;
       };
-      uint8_t                   ANMF:1;         /**< @brief .         */
-      uint8_t                   FIDX:7;         /**< @brief .         */
-      uint8_t                   _R1:1;          /**< @brief .         */
-      uint8_t                   FDF:1;          /**< @brief .         */
-      uint8_t                   BRS:1;          /**< @brief .         */
-      uint8_t                   DLC:4;          /**< @brief .         */
-      uint16_t                  RXTS:16;        /**< @brief .         */
+      uint8_t               ANMF:1;         /**< @brief .         */
+      uint8_t               FIDX:7;         /**< @brief .         */
+      uint8_t               _R1:1;          /**< @brief .         */
+      uint8_t               FDF:1;          /**< @brief .         */
+      uint8_t               BRS:1;          /**< @brief .         */
+      uint8_t               DLC:4;          /**< @brief .         */
+      uint16_t              RXTS:16;        /**< @brief .         */
     } field;
     uint32_t                data32[2];
   } header;

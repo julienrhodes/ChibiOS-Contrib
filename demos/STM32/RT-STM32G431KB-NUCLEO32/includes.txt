@@ -5,6 +5,7 @@
 /home/julien/Documents/git/3rd/ChibiOS-RT/os/common/ext/ARM/CMSIS/Core/Include
 /home/julien/Documents/git/3rd/ChibiOS-RT/os/common/ext/ST/STM32G4xx
 /home/julien/Documents/git/3rd/ChibiOS-RT/os/hal/include
+/home/julien/Documents/git/3rd/ChibiOS-RT/os/hal/src
 /home/julien/Documents/git/3rd/ChibiOS-RT/os/hal/ports/common/ARMCMx
 /home/julien/Documents/git/3rd/ChibiOS-Contrib/os/hal/ports/STM32/STM32G4xx
 /home/julien/Documents/git/3rd/ChibiOS-RT/os/hal/ports/STM32/STM32G4xx
@@ -25,7 +26,9 @@
 /home/julien/Documents/git/3rd/ChibiOS-Contrib/os/hal/boards/ST_NUCLEO32_G431KB
 /home/julien/Documents/git/3rd/ChibiOS-RT/os/hal/osal/rt-nil
 /home/julien/Documents/git/3rd/ChibiOS-RT/os/rt/include
+/home/julien/Documents/git/3rd/ChibiOS-RT/os/rt/src
 /home/julien/Documents/git/3rd/ChibiOS-RT/os/oslib/include
+/home/julien/Documents/git/3rd/ChibiOS-RT/os/oslib/src
 /home/julien/Documents/git/3rd/ChibiOS-RT/os/common/ports/ARMCMx
 /home/julien/Documents/git/3rd/ChibiOS-RT/os/common/ports/ARMCMx/compilers/GCC
 /home/julien/Documents/git/3rd/ChibiOS-RT/test/lib

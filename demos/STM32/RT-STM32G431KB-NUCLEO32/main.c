@@ -18,6 +18,7 @@
 #include "hal.h"
 #include "rt_test_root.h"
 #include "oslib_test_root.h"
+#include <string.h>
 
 /*
  * Green LED blinker thread, times are in milliseconds.
@@ -61,16 +62,23 @@ int main(void) {
    * sleeping in a loop and check the button state.
    */
   canStart(&CAND1, NULL);
+
+  CANRxFrame crfp;
+  memset(&crfp, 0, sizeof(crfp));
+  bool my_var;
+
+  my_var = canTryReceiveI(&CAND1, CAN_ANY_MAILBOX, &crfp);
+
   CANTxFrame ctfp;
   ctfp.header.field.SID = 1;
   ctfp.header.field.XTD = 0;
   ctfp.data32[0] = 0xdeadbeef;
   ctfp.data32[1] = 0xdeadbeef;
+  my_var = canTryTransmitI(&CAND1, CAN_ANY_MAILBOX, &ctfp);
 
-  CANRxFrame crfp;
-  canTryReceiveI(&CAND1, CAN_ANY_MAILBOX, &crfp);
-  canTryTransmitI(&CAND1, CAN_ANY_MAILBOX, &ctfp);
-  canTryReceiveI(&CAND1, CAN_ANY_MAILBOX, &crfp);
+  my_var = canTryReceiveI(&CAND1, CAN_ANY_MAILBOX, &crfp);
+  /*
+  */
 
   while (true) {
    if (palReadLine(LINE_INPUT_A12)) {
@@ -79,6 +87,6 @@ int main(void) {
    else {
       BLINK_SLEEP = 125;
    }
-   chThdSleepMilliseconds(250);
+   //chThdSleepMilliseconds(250);
  }
 }

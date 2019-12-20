@@ -16,7 +16,7 @@
 
 /**
  * @file    hal_can_lld.c
- * @brief   PLATFORM CAN subsystem low level driver source.
+ * @brief   STM32 CAN subsystem low level driver source.
  *
  * @addtogroup CAN
  * @{
@@ -31,7 +31,7 @@
 /*===========================================================================*/
 
 #define SRAMCAN_FLS_NBR                  (28U)         /* Max. Filter List Standard Number      */
-#define SRAMCAN_FLE_NBR                  ( 0U)         /* Max. Filter List Extended Number      */
+#define SRAMCAN_FLE_NBR                  ( 8U)         /* Max. Filter List Extended Number      */
 #define SRAMCAN_RF0_NBR                  ( 3U)         /* RX FIFO 0 Elements Number             */
 #define SRAMCAN_RF1_NBR                  ( 3U)         /* RX FIFO 1 Elements Number             */
 #define SRAMCAN_TEF_NBR                  ( 3U)         /* TX Event FIFO Elements Number         */
@@ -75,7 +75,8 @@ CANDriver CAND1;
 
 static void can_lld_set_filters(CANDriver* canp) {
   // Set filter count to SRAMCAN_FLS_NBR, required for SRAM addressing to work
-  MODIFY_REG(canp->can->RXGFC, FDCAN_RXGFC_LSS, FDCAN_RXGFC_LSS & (SRAMCAN_FLS_NBR << FDCAN_RXGFC_LSS_Pos));
+  MODIFY_REG(canp->can->RXGFC, FDCAN_RXGFC_LSS,
+          FDCAN_RXGFC_LSS & (SRAMCAN_FLS_NBR << FDCAN_RXGFC_LSS_Pos));
 
   CANRxFilter filter1;
   filter1.field.SFT = 2; // classic
@@ -102,14 +103,23 @@ static void can_lld_set_filters(CANDriver* canp) {
  */
 void can_lld_init(void) {
 
-#if PLATFORM_CAN_USE_CAN1 == TRUE
+#if STM32_CAN_USE_CAN1 == TRUE
   /* Driver initialization.*/
   canObjectInit(&CAND1);
   CAND1.can = FDCAN1;
+  rccEnableFDCAN1(true);  // Stays on in sleep
 
   //TODO: set global filter quantities so that the memory map is actually true
   //TODO: Erase all the message RAM
-  can_lld_set_filters(CANDriver *canp,);
+  can_lld_set_filters(&CAND1);
+
+  // Zero out the SRAM
+  uint32_t * addr;
+  for(addr=(uint32_t *)SRAMCAN_BASE;
+          addr<(uint32_t *)(SRAMCAN_BASE + SRAMCAN_SIZE); addr+=4U)
+  {
+      *addr = (uint32_t) 0U;
+  }
 
 #endif
 }
@@ -125,7 +135,7 @@ void can_lld_start(CANDriver *canp) {
 
   if (canp->state == CAN_STOP) {
     /* Enables the peripheral.*/
-#if PLATFORM_CAN_USE_CAN1 == TRUE
+#if STM32_CAN_USE_CAN1 == TRUE
     if (&CAND1 == canp) {
       rccEnableFDCAN1(true);  // Stays on in sleep
     }
@@ -151,9 +161,10 @@ void can_lld_start(CANDriver *canp) {
   SET_BIT(canp->can->TEST, FDCAN_TEST_LBCK);
 
   // Start it up
-  CLEAR_BIT(canp->can->CCCR, FDCAN_CCCR_CCE);
+  //CLEAR_BIT(canp->can->CCCR, FDCAN_CCCR_CCE); Happens automatically with init
+  //clear
   CLEAR_BIT(canp->can->CCCR, FDCAN_CCCR_INIT);
-  while(READ_BIT(canp->can->CCCR,FDCAN_CCCR_INIT) == 1) {
+  while(READ_BIT(canp->can->CCCR, FDCAN_CCCR_INIT)) {
     osalThreadSleepS(1);
   }
 }
@@ -172,7 +183,7 @@ void can_lld_stop(CANDriver *canp) {
     /* Resets the peripheral.*/
 
     /* Disables the peripheral.*/
-#if PLATFORM_CAN_USE_CAN1 == TRUE
+#if STM32_CAN_USE_CAN1 == TRUE
     if (&CAND1 == canp) {
       rccDisableFDCAN1();  // Stays on in sleep
 

@@ -1,1 +1,1 @@
-( cat includes.txt | while read dir; do ls $dir/*.h; done; ) | xargs ctags
+( cat includes.txt | while read dir; do ls $dir/*.{h,c}; done; ) | xargs ctags
