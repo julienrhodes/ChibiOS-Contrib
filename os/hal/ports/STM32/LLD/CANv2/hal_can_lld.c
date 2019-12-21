@@ -276,7 +276,7 @@ bool can_lld_is_rx_nonempty(CANDriver *canp, canmbx_t mailbox) {
   case 1:
   case 2:
   default:
-    return (READ_BIT(canp->can->RXF0S, FDCAN_RXF0S_F0F) == 0);
+    return (!READ_BIT(canp->can->RXF0S, FDCAN_RXF0S_F0F));
   }
 }
 
