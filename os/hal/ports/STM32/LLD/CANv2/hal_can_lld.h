@@ -98,21 +98,21 @@ typedef struct {
   union {
     
     struct {
-      uint8_t               ESI:1;          /**< @brief .        */
-      uint8_t               XTD:1;          /**< @brief .        */
-      uint8_t               RTR:1;          /**< @brief Frame type.         */
       union {
         uint32_t            SID:11;         /**< @brief Standard identifier.*/
         uint32_t            EID:29;         /**< @brief Extended identifier.*/
         uint32_t            _align1;
       };
-      uint8_t               MM:8;           /**< @brief .         */
-      uint8_t               EFC:1;          /**< @brief .         */
-      uint8_t               _R1:1;          /**< @brief .         */
-      uint8_t               FDF:1;          /**< @brief .         */
-      uint8_t               BPS:1;          /**< @brief .         */
-      uint8_t               DLC:4;          /**< @brief .         */
+      uint8_t               RTR:1;          /**< @brief Frame type.         */
+      uint8_t               XTD:1;          /**< @brief .        */
+      uint8_t               ESI:1;          /**< @brief .        */
       uint16_t               _R2:16;        /**< @brief .         */
+      uint8_t               DLC:4;          /**< @brief .         */
+      uint8_t               BPS:1;          /**< @brief .         */
+      uint8_t               FDF:1;          /**< @brief .         */
+      uint8_t               _R1:1;          /**< @brief .         */
+      uint8_t               EFC:1;          /**< @brief .         */
+      uint8_t               MM:8;           /**< @brief .         */
     } field;
     uint32_t                data32[2];
   } header;
@@ -134,21 +134,21 @@ typedef struct {
   /*lint -save -e46 [6.1] Standard types are fine too.*/
   union {
     struct {
-      uint8_t               ESI:1;          /**< @brief .        */
-      uint8_t               XTD:1;          /**< @brief .        */
-      uint8_t               RTR:1;          /**< @brief Frame type.         */
+      uint16_t              RXTS:16;        /**< @brief .         */
+      uint8_t               DLC:4;          /**< @brief .         */
+      uint8_t               BRS:1;          /**< @brief .         */
+      uint8_t               FDF:1;          /**< @brief .         */
+      uint8_t               _R1:1;          /**< @brief .         */
+      uint8_t               FIDX:7;         /**< @brief .         */
+      uint8_t               ANMF:1;         /**< @brief .         */
       union {
         uint32_t            SID:11;         /**< @brief Standard identifier.*/
         uint32_t            EID:29;         /**< @brief Extended identifier.*/
         uint32_t            _align1;
       };
-      uint8_t               ANMF:1;         /**< @brief .         */
-      uint8_t               FIDX:7;         /**< @brief .         */
-      uint8_t               _R1:1;          /**< @brief .         */
-      uint8_t               FDF:1;          /**< @brief .         */
-      uint8_t               BRS:1;          /**< @brief .         */
-      uint8_t               DLC:4;          /**< @brief .         */
-      uint16_t              RXTS:16;        /**< @brief .         */
+      uint8_t               RTR:1;          /**< @brief Frame type.         */
+      uint8_t               XTD:1;          /**< @brief .        */
+      uint8_t               ESI:1;          /**< @brief .        */
     } field;
     uint32_t                data32[2];
   } header;
@@ -163,13 +163,14 @@ typedef struct {
 typedef struct {
   union {
     struct {
-      uint8_t               SFT:2;
-      uint8_t               SFEC:3;
-      uint16_t              SFID1:11;
-      uint8_t               _R1:5;
       uint16_t              SFID2:11;
+      uint8_t               _R1:5;
+      uint16_t              SFID1:11;
+      uint8_t               SFEC:3;
+      uint8_t               SFT:2;
     } field;
     uint32_t                word;
+    uint8_t                byte[4];
   };
 } CANRxFilter;
 

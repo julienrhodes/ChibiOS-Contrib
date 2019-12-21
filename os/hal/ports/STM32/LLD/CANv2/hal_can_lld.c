@@ -31,7 +31,7 @@
 /*===========================================================================*/
 
 #define SRAMCAN_FLS_NBR                  (28U)         /* Max. Filter List Standard Number      */
-#define SRAMCAN_FLE_NBR                  ( 8U)         /* Max. Filter List Extended Number      */
+#define SRAMCAN_FLE_NBR                  ( 4U)         /* Max. Filter List Extended Number      */
 #define SRAMCAN_RF0_NBR                  ( 3U)         /* RX FIFO 0 Elements Number             */
 #define SRAMCAN_RF1_NBR                  ( 3U)         /* RX FIFO 1 Elements Number             */
 #define SRAMCAN_TEF_NBR                  ( 3U)         /* TX Event FIFO Elements Number         */
@@ -110,10 +110,7 @@ void can_lld_init(void) {
   CAND1.can = FDCAN1;
   rccEnableFDCAN1(true);  // Stays on in sleep
 
-  //TODO: set global filter quantities so that the memory map is actually true
   //TODO: Erase all the message RAM
-  can_lld_set_filters(&CAND1);
-
   // Zero out the SRAM
   uint32_t * addr;
   for(addr=(uint32_t *)SRAMCAN_BASE;
@@ -121,6 +118,10 @@ void can_lld_init(void) {
   {
       *addr = (uint32_t) 0U;
   }
+  //
+  //TODO: set global filter quantities so that the memory map is actually true
+  can_lld_set_filters(&CAND1);
+
 
 #endif
 }
@@ -238,14 +239,17 @@ void can_lld_transmit(CANDriver *canp,
   uint32_t *tx_address = (uint32_t *) (SRAMCAN_BASE + SRAMCAN_TFQSA);
   //WRITE_REG(SRAMCAN_BASE, 0);
   WRITE_REG(*tx_address, ctfp->header.data32[0]);
-  tx_address += 4U;
+  tx_address += 1U;
   WRITE_REG(*tx_address, ctfp->header.data32[1]);
-  tx_address += 4U;
+  tx_address += 1U;
 
   WRITE_REG(*tx_address, ctfp->data32[0]);
-  tx_address += 4U;
+  tx_address += 1U;
   WRITE_REG(*tx_address, ctfp->data32[1]);
-  tx_address += 4U;
+  tx_address += 1U;
+
+  // Add TX request
+  SET_BIT(canp->can->TXBAR, 1);
 
 
 }
@@ -292,13 +296,14 @@ void can_lld_receive(CANDriver *canp,
   (void)canp;
   (void)mailbox;
   (void)crfp;
+  // TODO: get the GET index, add it and the length to the rx_address
   uint32_t *rx_address = (uint32_t *) (SRAMCAN_BASE + SRAMCAN_RF0SA);
   crfp->header.data32[0] = READ_REG(*rx_address); 
-  rx_address += 4U;
+  rx_address += 1U;
   crfp->header.data32[1] = READ_REG(*rx_address); 
-  rx_address += 4U;
+  rx_address += 1U;
   crfp->data32[0] = READ_REG(*rx_address); 
-  rx_address += 4U;
+  rx_address += 1U;
   crfp->data32[1] = READ_REG(*rx_address); 
 
 }

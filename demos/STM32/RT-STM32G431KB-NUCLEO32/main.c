@@ -65,15 +65,17 @@ int main(void) {
 
   CANRxFrame crfp;
   memset(&crfp, 0, sizeof(crfp));
+
   bool my_var;
 
-  my_var = canTryReceiveI(&CAND1, CAN_ANY_MAILBOX, &crfp);
+  //my_var = canTryReceiveI(&CAND1, CAN_ANY_MAILBOX, &crfp);
 
   CANTxFrame ctfp;
+  memset(&ctfp, 0, sizeof(ctfp));
   ctfp.header.field.SID = 1;
   ctfp.header.field.XTD = 0;
-  ctfp.data32[0] = 0xdeadbeef;
-  ctfp.data32[1] = 0xdeadbeef;
+  ctfp.data32[0] = 0x5555beef;
+  ctfp.data32[1] = 0xdead5555;
   my_var = canTryTransmitI(&CAND1, CAN_ANY_MAILBOX, &ctfp);
 
   my_var = canTryReceiveI(&CAND1, CAN_ANY_MAILBOX, &crfp);
