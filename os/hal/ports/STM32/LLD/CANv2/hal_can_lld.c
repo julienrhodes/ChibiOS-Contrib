@@ -105,6 +105,7 @@ void can_lld_init(void) {
 
 #if STM32_CAN_USE_CAN1 == TRUE
   /* Driver initialization.*/
+  rccResetFDCAN1();
   canObjectInit(&CAND1);
   CAND1.can = FDCAN1;
   rccEnableFDCAN1(true);  // Stays on in sleep
