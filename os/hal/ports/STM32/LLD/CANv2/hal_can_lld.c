@@ -79,13 +79,16 @@ static void can_lld_set_filters(CANDriver* canp) {
           FDCAN_RXGFC_LSS & (SRAMCAN_FLS_NBR << FDCAN_RXGFC_LSS_Pos));
 
   CANRxFilter filter1;
-  filter1.field.SFT = 2; // classic
-  filter1.field.SFEC = 1; //store in fifo 0
-  filter1.field.SFID1 = 0; // ID
-  filter1.field.SFID2 = 0; // Mask
+  filter1.SFT = 2; // classic
+  filter1.SFEC = 1; //store in fifo 0
+  filter1.SFID1 = 1; // ID
+  filter1.SFID2 = 0x3FF; // Mask
   uint32_t *addr = (uint32_t *) SRAMCAN_BASE + SRAMCAN_FLSSA;
   //WRITE_REG((uint32_t *) *(SRAMCAN_BASE + SRAMCAN_FLSSA), filter1.word);
-  WRITE_REG(*addr, filter1.word);
+  WRITE_REG(*addr, filter1.data32);
+
+  // Standard filter enable 1 filter
+  MODIFY_REG(canp->can->RXGFC, 0x0, 1 << FDCAN_RXGFC_LSS_Pos);
 }
 
 /*===========================================================================*/
@@ -120,6 +123,11 @@ void can_lld_init(void) {
   }
   //
   //TODO: set global filter quantities so that the memory map is actually true
+  SET_BIT(CAND1.can->CCCR, FDCAN_CCCR_INIT);
+  while(READ_BIT(CAND1.can->CCCR,FDCAN_CCCR_INIT) != 1) {
+    osalThreadSleepS(1);
+  }
+  SET_BIT(CAND1.can->CCCR, FDCAN_CCCR_CCE);
   can_lld_set_filters(&CAND1);
 
 

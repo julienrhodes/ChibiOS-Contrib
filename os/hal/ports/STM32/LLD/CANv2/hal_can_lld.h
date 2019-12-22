@@ -172,9 +172,8 @@ typedef struct {
       uint16_t              SFID1:11;
       uint8_t               SFEC:3;
       uint8_t               SFT:2;
-    } field;
-    uint32_t                word;
-    uint8_t                byte[4];
+    };
+    uint32_t                data32;
   };
 } CANRxFilter;
 
