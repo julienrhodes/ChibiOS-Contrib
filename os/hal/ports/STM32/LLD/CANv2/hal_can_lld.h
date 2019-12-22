@@ -93,22 +93,28 @@ typedef void (*can_callback_t)(CANDriver *canp, uint32_t flags);
  * @note    Accessing the frame data as word16 or word32 is not portable because
  *          machine data endianness, it can be still useful for a quick filling.
  */
-typedef struct __attribute__((packed)) {
+typedef struct {
   /*lint -save -e46 [6.1] Standard types are fine too.*/
   union {
     
     struct {
-      uint32_t              SID:29;         /**< @brief Extended identifier.*/
-      uint8_t               RTR:1;          /**< @brief Frame type.         */
-      uint8_t               XTD:1;          /**< @brief .        */
-      uint8_t               ESI:1;          /**< @brief .        */
-      uint16_t               _R2:16;        /**< @brief .         */
-      uint8_t               DLC:4;          /**< @brief .         */
-      uint8_t               BPS:1;          /**< @brief .         */
-      uint8_t               FDF:1;          /**< @brief .         */
-      uint8_t               _R1:1;          /**< @brief .         */
-      uint8_t               EFC:1;          /**< @brief .         */
-      uint8_t               MM:8;           /**< @brief .         */
+      union {
+        uint32_t            EID:29;         /**< @brief Extended Identifier */
+        struct {
+          uint32_t          _R1:18;         /**< @brief Reserved for Offset.*/
+          uint16_t          SID:11;         /**< @brief Standard Identifier.*/
+          uint8_t           RTR:1;          /**< @brief Remote Transmit Req.*/
+          uint8_t           XTD:1;          /**< @brief Extended Identifier.*/
+          uint8_t           ESI:1;          /**< @brief Error State Indicat */
+        };
+      };
+      uint16_t              _R2:16;         /**< @brief Reserved.           */
+      uint8_t               DLC:4;          /**< @brief Data Length Code.   */
+      uint8_t               BPS:1;          /**< @brief Accepted non-match. */
+      uint8_t               FDF:1;          /**< @brief FDCAN Format.       */
+      uint8_t               _R3:1;          /**< @brief .         */
+      uint8_t               EFC:1;          /**< @brief Event FIFO Control. */
+      uint8_t               MM:8;           /**< @brief Message Event Marker*/
     };
     uint32_t                header32[2];
   };
@@ -130,15 +136,21 @@ typedef struct {
   /*lint -save -e46 [6.1] Standard types are fine too.*/
   union {
     struct {
-      uint32_t            SID:29;         /**< @brief Standard identifier.*/
-      uint8_t               RTR:1;          /**< @brief Frame type.         */
-      uint8_t               XTD:1;          /**< @brief .        */
-      uint8_t               ESI:1;          /**< @brief .        */
+      union {
+        uint32_t            EID:29;         /**< @brief Standard identifier.*/
+        struct {
+          uint32_t          _R1:18;         /**< @brief Standard identifier.*/
+          uint16_t          SID:11;         /**< @brief Standard identifier.*/
+          uint8_t           RTR:1;          /**< @brief Remote Transmit Req.*/
+          uint8_t           XTD:1;          /**< @brief Extended Identifier.*/
+          uint8_t           ESI:1;          /**< @brief .        */
+        };
+      };
       uint16_t              RXTS:16;        /**< @brief .         */
-      uint8_t               DLC:4;          /**< @brief .         */
+      uint8_t               DLC:4;          /**< @brief Data Length Code.   */
       uint8_t               BRS:1;          /**< @brief .         */
-      uint8_t               FDF:1;          /**< @brief .         */
-      uint8_t               _R1:1;          /**< @brief .         */
+      uint8_t               FDF:1;          /**< @brief FDCAN Format.       */
+      uint8_t               _R2:1;          /**< @brief .         */
       uint8_t               FIDX:7;         /**< @brief .         */
       uint8_t               ANMF:1;         /**< @brief .         */
     };
