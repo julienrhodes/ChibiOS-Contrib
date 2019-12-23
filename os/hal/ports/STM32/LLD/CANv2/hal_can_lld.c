@@ -74,9 +74,6 @@ CANDriver CAND1;
 /*===========================================================================*/
 
 static void can_lld_set_filters(CANDriver* canp) {
-  // Set filter count to SRAMCAN_FLS_NBR, required for SRAM addressing to work
-  MODIFY_REG(canp->can->RXGFC, FDCAN_RXGFC_LSS,
-          FDCAN_RXGFC_LSS & (SRAMCAN_FLS_NBR << FDCAN_RXGFC_LSS_Pos));
 
   CANRxFilter filter1;
   filter1.SFT = 2; // classic
@@ -87,8 +84,13 @@ static void can_lld_set_filters(CANDriver* canp) {
   //WRITE_REG((uint32_t *) *(SRAMCAN_BASE + SRAMCAN_FLSSA), filter1.word);
   WRITE_REG(*addr, filter1.data32);
 
+  /*
+  // Set filter count to SRAMCAN_FLS_NBR
+  MODIFY_REG(canp->can->RXGFC, FDCAN_RXGFC_LSS,
+          FDCAN_RXGFC_LSS & (SRAMCAN_FLS_NBR << FDCAN_RXGFC_LSS_Pos));
+  */
   // Standard filter enable 1 filter
-  MODIFY_REG(canp->can->RXGFC, 0x0, 1 << FDCAN_RXGFC_LSS_Pos);
+  MODIFY_REG(canp->can->RXGFC, FDCAN_RXGFC_LSS, 1 << FDCAN_RXGFC_LSS_Pos);
 }
 
 /*===========================================================================*/
@@ -107,13 +109,13 @@ static void can_lld_set_filters(CANDriver* canp) {
 void can_lld_init(void) {
 
 #if STM32_CAN_USE_CAN1 == TRUE
-  /* Driver initialization.*/
   rccResetFDCAN1();
+
+  /* Driver initialization.*/
   canObjectInit(&CAND1);
   CAND1.can = FDCAN1;
   rccEnableFDCAN1(true);  // Stays on in sleep
 
-  //TODO: Erase all the message RAM
   // Zero out the SRAM
   uint32_t * addr;
   for(addr=(uint32_t *)SRAMCAN_BASE;
@@ -122,7 +124,6 @@ void can_lld_init(void) {
       *addr = (uint32_t) 0U;
   }
   //
-  //TODO: set global filter quantities so that the memory map is actually true
   SET_BIT(CAND1.can->CCCR, FDCAN_CCCR_INIT);
   while(READ_BIT(CAND1.can->CCCR,FDCAN_CCCR_INIT) != 1) {
     osalThreadSleepS(1);
@@ -158,11 +159,13 @@ void can_lld_start(CANDriver *canp) {
     osalThreadSleepS(1);
   }
   SET_BIT(canp->can->CCCR, FDCAN_CCCR_INIT);
+  // Wait for init
   while(READ_BIT(canp->can->CCCR,FDCAN_CCCR_INIT) != 1) {
     osalThreadSleepS(1);
   }
   SET_BIT(canp->can->CCCR, FDCAN_CCCR_CCE);
-  FDCAN_CONFIG->CKDIV = 8;
+
+  // FDCAN_CONFIG->CKDIV = 8;
   SET_BIT(canp->can->CCCR, FDCAN_CCCR_DAR);
 
   // Internal loopback mode
@@ -195,7 +198,8 @@ void can_lld_stop(CANDriver *canp) {
     /* Disables the peripheral.*/
 #if STM32_CAN_USE_CAN1 == TRUE
     if (&CAND1 == canp) {
-      rccDisableFDCAN1();  // Stays on in sleep
+      rccDisableFDCAN1();
+      SET_BIT(canp->can->CCCR, FDCAN_CCCR_CSR);
 
     }
 #endif
@@ -304,8 +308,10 @@ void can_lld_receive(CANDriver *canp,
   (void)canp;
   (void)mailbox;
   (void)crfp;
-  // TODO: get the GET index, add it and the length to the rx_address
-  uint32_t *rx_address = (uint32_t *) (SRAMCAN_BASE + SRAMCAN_RF0SA);
+  // GET index, add it and the length to the rx_address
+  uint32_t get_index = (READ_REG(canp->can->RXF0S) & FDCAN_RXF0S_F0GI_Msk) >> FDCAN_RXF0S_F0GI_Pos;
+  uint32_t *rx_address = (uint32_t *) (SRAMCAN_BASE + SRAMCAN_RF0SA + get_index * 18U);
+  rx_address += 
   crfp->header32[0] = READ_REG(*rx_address); 
   rx_address += 1U;
   crfp->header32[1] = READ_REG(*rx_address); 
@@ -313,7 +319,9 @@ void can_lld_receive(CANDriver *canp,
   crfp->data32[0] = READ_REG(*rx_address); 
   rx_address += 1U;
   crfp->data32[1] = READ_REG(*rx_address); 
-  // TODO: acknowledge receipt using RXF0A
+
+  // Acknowledge receipt using RXF0A
+  WRITE_REG(canp->can->RXF0A, (get_index << FDCAN_RXF0A_F0AI_Pos) & FDCAN_RXF0A_F0AI_Msk);
 
 }
 
