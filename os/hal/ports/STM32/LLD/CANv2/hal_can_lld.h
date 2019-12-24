@@ -175,16 +175,22 @@ typedef struct {
     };
     uint32_t                data32;
   };
-} CANRxFilter;
+} CANRxStandardFilter;
 
 /**
  * @brief   Driver configuration structure.
  */
+
 typedef struct {
   /* End of the mandatory fields.*/
-  uint32_t                  dummy;
+  uint32_t                  anfs;  // Accept non-masked standard messages
+  uint32_t                  anfe;  // Accept non-masked extended messages
+  uint32_t                  dar;  // Disable automatic reply
+  uint8_t                   loopback;  //
+  uint8_t                   monitor;  //
 } CANConfig;
 
+void canConfigObjectInit(CANConfig * config);
 /**
  * @brief   Structure representing an CAN driver.
  */

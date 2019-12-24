@@ -73,16 +73,30 @@ CANDriver CAND1;
 /* Driver local functions.                                                   */
 /*===========================================================================*/
 
-static void can_lld_set_filters(CANDriver* canp) {
+/**
+ * @brief   Configures and activates a standard CAN filter.
+ *
+ * @param[in] canp      pointer to the @p CANDriver object
+ * @param[in] filter    pointer to the @p CANRxStandardFilter object or NULL
+ * @param[in] num       index of filter slot to use (0-28 inclusive)
+ *
+ * @notapi
+ */
+static void can_lld_set_filters(CANDriver* canp, CANRxStandardFilter *filter,
+                                uint8_t num) {
 
-  CANRxFilter filter1;
-  filter1.SFT = 2; // classic
-  filter1.SFEC = 1; //store in fifo 0
-  filter1.SFID1 = 1; // ID
-  filter1.SFID2 = 0x3FF; // Mask
-  uint32_t *addr = (uint32_t *) SRAMCAN_BASE + SRAMCAN_FLSSA;
-  //WRITE_REG((uint32_t *) *(SRAMCAN_BASE + SRAMCAN_FLSSA), filter1.word);
-  WRITE_REG(*addr, filter1.data32);
+  if (filter == NULL) {
+    CANRxStandardFilter default_filter;
+    default_filter.SFT = 2;       // Classic Filter
+    default_filter.SFEC = 1;      // Store in FIFO 0
+    default_filter.SFID1 = 0x000; // ID
+    default_filter.SFID2 = 0x000; // Mask
+    filter = &default_filter;
+    num = 0;
+  }
+  //WRITE_REG((uint32_t *) *(SRAMCAN_BASE + SRAMCAN_FLSSA), default_filter.word);
+  uint32_t *addr = (uint32_t *) SRAMCAN_BASE + SRAMCAN_FLSSA + num * 1U;
+  WRITE_REG(*addr, filter->data32);
 
   /*
   // Set filter count to SRAMCAN_FLS_NBR
@@ -90,7 +104,12 @@ static void can_lld_set_filters(CANDriver* canp) {
           FDCAN_RXGFC_LSS & (SRAMCAN_FLS_NBR << FDCAN_RXGFC_LSS_Pos));
   */
   // Standard filter enable 1 filter
-  MODIFY_REG(canp->can->RXGFC, FDCAN_RXGFC_LSS, 1 << FDCAN_RXGFC_LSS_Pos);
+  MODIFY_REG(canp->can->RXGFC, FDCAN_RXGFC_LSS, (num + 1) << FDCAN_RXGFC_LSS_Pos);
+
+  MODIFY_REG(canp->can->RXGFC, FDCAN_RXGFC_ANFE_Msk,
+      canp->config->anfe << FDCAN_RXGFC_ANFE_Pos);
+  MODIFY_REG(canp->can->RXGFC, FDCAN_RXGFC_ANFS_Msk,
+      canp->config->anfs << FDCAN_RXGFC_ANFS_Pos);
 }
 
 /*===========================================================================*/
@@ -100,6 +119,14 @@ static void can_lld_set_filters(CANDriver* canp) {
 /*===========================================================================*/
 /* Driver exported functions.                                                */
 /*===========================================================================*/
+
+void canConfigObjectInit(CANConfig * config) {
+  config->anfs = 0;
+  config->anfe = 0;
+  config->dar = 0;
+  config->monitor = 0;
+  config->loopback = 0;
+}
 
 /**
  * @brief   Low level CAN driver initialization.
@@ -129,7 +156,7 @@ void can_lld_init(void) {
     osalThreadSleepS(1);
   }
   SET_BIT(CAND1.can->CCCR, FDCAN_CCCR_CCE);
-  can_lld_set_filters(&CAND1);
+  can_lld_set_filters(&CAND1, NULL, 0);
 
 
 #endif
@@ -166,12 +193,17 @@ void can_lld_start(CANDriver *canp) {
   SET_BIT(canp->can->CCCR, FDCAN_CCCR_CCE);
 
   // FDCAN_CONFIG->CKDIV = 8;
-  SET_BIT(canp->can->CCCR, FDCAN_CCCR_DAR);
+  if (canp->config->dar) {
+    SET_BIT(canp->can->CCCR, FDCAN_CCCR_DAR);
+  }
 
-  // Internal loopback mode
-  CLEAR_BIT(canp->can->CCCR, FDCAN_CCCR_ASM);
-  SET_BIT(canp->can->CCCR, FDCAN_CCCR_TEST | FDCAN_CCCR_MON);
-  SET_BIT(canp->can->TEST, FDCAN_TEST_LBCK);
+  if (canp->config->monitor) {
+    SET_BIT(canp->can->CCCR, FDCAN_CCCR_MON);
+  }
+  if (canp->config->loopback) {
+    SET_BIT(canp->can->CCCR, FDCAN_CCCR_TEST);
+    SET_BIT(canp->can->TEST, FDCAN_TEST_LBCK);
+  }
 
   // Start it up
   //CLEAR_BIT(canp->can->CCCR, FDCAN_CCCR_CCE); Happens automatically with init
@@ -311,7 +343,6 @@ void can_lld_receive(CANDriver *canp,
   // GET index, add it and the length to the rx_address
   uint32_t get_index = (READ_REG(canp->can->RXF0S) & FDCAN_RXF0S_F0GI_Msk) >> FDCAN_RXF0S_F0GI_Pos;
   uint32_t *rx_address = (uint32_t *) (SRAMCAN_BASE + SRAMCAN_RF0SA + get_index * 18U);
-  rx_address += 
   crfp->header32[0] = READ_REG(*rx_address); 
   rx_address += 1U;
   crfp->header32[1] = READ_REG(*rx_address); 

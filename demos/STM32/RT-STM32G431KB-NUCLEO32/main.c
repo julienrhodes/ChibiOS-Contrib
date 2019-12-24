@@ -61,7 +61,14 @@ int main(void) {
    * Normal main() thread activity, in this demo it does nothing except
    * sleeping in a loop and check the button state.
    */
-  canStart(&CAND1, NULL);
+  CANConfig test = {
+    .anfs = 1,  // Accept in FIFO0
+    .anfe = 1,
+    .dar = 0,
+    .monitor = 1,
+    .loopback = 1,
+  };
+  canStart(&CAND1, &test);
 
   CANRxFrame crfp;
   memset(&crfp, 0, sizeof(crfp));
