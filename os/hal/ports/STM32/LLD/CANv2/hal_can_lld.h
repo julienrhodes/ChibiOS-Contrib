@@ -32,6 +32,11 @@
 /*===========================================================================*/
 
 /**
+ * @brief   Maximum number of bytes in data of CAN packets.
+ */
+#define CAN_MAX_DLC_BYTES           64
+
+/**
  * @brief   Number of transmit mailboxes.
  */
 #define CAN_TX_MAILBOXES            1
@@ -121,9 +126,9 @@ typedef struct {
 
   /*lint -restore*/
   union {
-    uint8_t                 data8[8];       /**< @brief Frame data.         */
-    uint16_t                data16[4];      /**< @brief Frame data.         */
-    uint32_t                data32[2];      /**< @brief Frame data.         */
+    uint8_t                 data8[CAN_MAX_DLC_BYTES]; /**< @brief Frame data.     */
+    uint16_t                data16[CAN_MAX_DLC_BYTES / 2];
+    uint32_t                data32[CAN_MAX_DLC_BYTES / 4];
   };
 } CANTxFrame;
 
@@ -158,9 +163,9 @@ typedef struct {
   };
       /*lint -restore*/
   union {
-    uint8_t                 data8[8];       /**< @brief Frame data.         */
-    uint16_t                data16[4];      /**< @brief Frame data.         */
-    uint32_t                data32[2];      /**< @brief Frame data.         */
+    uint8_t                 data8[CAN_MAX_DLC_BYTES];   /**< @brief Frame data.   */
+    uint16_t                data16[CAN_MAX_DLC_BYTES / 2];
+    uint32_t                data32[CAN_MAX_DLC_BYTES / 4];
   };
 } CANRxFrame;
 
@@ -277,6 +282,7 @@ struct CANDriver {
 #endif
 #endif
   FDCAN_GlobalTypeDef       *can;
+  uint32_t                  *ram;
   /* End of the mandatory fields.*/
 };
 
@@ -290,6 +296,14 @@ struct CANDriver {
 
 #if (STM32_CAN_USE_CAN1 == TRUE) && !defined(__DOXYGEN__)
 extern CANDriver CAND1;
+#endif
+
+#if (STM32_CAN_USE_CAN2 == TRUE) && !defined(__DOXYGEN__)
+extern CANDriver CAND2;
+#endif
+
+#if (STM32_CAN_USE_CAN3 == TRUE) && !defined(__DOXYGEN__)
+extern CANDriver CAND3;
 #endif
 
 #ifdef __cplusplus

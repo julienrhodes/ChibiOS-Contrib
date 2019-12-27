@@ -18,7 +18,6 @@
 #include "hal.h"
 #include "rt_test_root.h"
 #include "oslib_test_root.h"
-#include <string.h>
 
 /*
  * Green LED blinker thread, times are in milliseconds.
@@ -62,33 +61,30 @@ int main(void) {
    * sleeping in a loop and check the button state.
    */
   CANConfig test = {
-    .anfs = 1,  // Accept in FIFO0
-    .anfe = 1,
-    .dar = 0,
-    .monitor = 1,
-    .loopback = 1,
+    .anfs = 1,  // Accept unmatched standard packets in FIFO0
+    .anfe = 1,  // Accept unmatched extended packets in FIFO0
+    .dar = 0, // Disable automatic reply
+    .monitor = 1, // Disable TX pin
+    .loopback = 1, // Enable loopack
   };
+
   canStart(&CAND1, &test);
 
-  CANRxFrame crfp;
-  memset(&crfp, 0, sizeof(crfp));
+  CANRxFrame crfp = {0};
 
   bool my_var;
 
   //my_var = canTryReceiveI(&CAND1, CAN_ANY_MAILBOX, &crfp);
 
-  CANTxFrame ctfp;
-  memset(&ctfp, 0, sizeof(ctfp));
+  CANTxFrame ctfp = {0};
   ctfp.SID = 1;
   ctfp.XTD = 0;
   ctfp.DLC = 8;
   ctfp.data32[0] = 0x5555beef;
   ctfp.data32[1] = 0xdead5555;
-  my_var = canTryTransmitI(&CAND1, CAN_ANY_MAILBOX, &ctfp);
 
+  my_var = canTryTransmitI(&CAND1, CAN_ANY_MAILBOX, &ctfp);
   my_var = canTryReceiveI(&CAND1, CAN_ANY_MAILBOX, &crfp);
-  /*
-  */
 
   while (true) {
    if (palReadLine(LINE_INPUT_A12)) {

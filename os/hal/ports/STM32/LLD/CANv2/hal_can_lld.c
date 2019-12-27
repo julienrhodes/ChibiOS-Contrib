@@ -65,6 +65,20 @@
 CANDriver CAND1;
 #endif
 
+/**
+ * @brief   CAN2 driver identifier.
+ */
+#if (STM32_CAN_USE_CAN2 == TRUE) || defined(__DOXYGEN__)
+CANDriver CAND2;
+#endif
+
+/**
+ * @brief   CAN3 driver identifier.
+ */
+#if (STM32_CAN_USE_CAN3 == TRUE) || defined(__DOXYGEN__)
+CANDriver CAND3;
+#endif
+
 /*===========================================================================*/
 /* Driver local variables and types.                                         */
 /*===========================================================================*/
@@ -95,7 +109,7 @@ static void can_lld_set_filters(CANDriver* canp, CANRxStandardFilter *filter,
     num = 0;
   }
   //WRITE_REG((uint32_t *) *(SRAMCAN_BASE + SRAMCAN_FLSSA), default_filter.word);
-  uint32_t *addr = (uint32_t *) SRAMCAN_BASE + SRAMCAN_FLSSA + num * 1U;
+  uint32_t *addr = canp->ram + SRAMCAN_FLSSA + (num * (SRAMCAN_FLS_SIZE / 4U));
   WRITE_REG(*addr, filter->data32);
 
   /*
@@ -128,6 +142,38 @@ void canConfigObjectInit(CANConfig * config) {
   config->loopback = 0;
 }
 
+void _can_lld_init(CANDriver *CAND, FDCAN_GlobalTypeDef *FDCAN, uint32_t *ram_base) {
+
+  /* Driver initialization.*/
+  canObjectInit(CAND);
+  CAND->can = FDCAN;
+  CAND->ram = ram_base;
+
+  // TODO: Use memset?
+  // Zero out the SRAM
+  uint32_t * addr;
+  for(addr=ram_base;
+          addr<(ram_base + SRAMCAN_SIZE); addr+=1U)
+  {
+      *addr = (uint32_t) 0U;
+  }
+  //
+  SET_BIT(CAND->can->CCCR, FDCAN_CCCR_INIT);
+
+  systime_t start = osalOsGetSystemTimeX();
+  systime_t end = osalTimeAddX(start, TIME_MS2I(500));
+
+  while(READ_BIT(CAND->can->CCCR,FDCAN_CCCR_INIT) != 1
+      && osalTimeIsInRangeX(osalOsGetSystemTimeX(), start, end)) {
+    osalThreadSleepS(1);
+  }
+  osalDbgAssert(READ_BIT(CAND->can->CCCR,FDCAN_CCCR_INIT) == 1,
+      "CAN1 did not exit init, check clocks and pin config");
+
+  SET_BIT(CAND->can->CCCR, FDCAN_CCCR_CCE);
+  can_lld_set_filters(CAND, NULL, 0);
+}
+
 /**
  * @brief   Low level CAN driver initialization.
  *
@@ -137,28 +183,18 @@ void can_lld_init(void) {
 
 #if STM32_CAN_USE_CAN1 == TRUE
   rccResetFDCAN1();
-
-  /* Driver initialization.*/
-  canObjectInit(&CAND1);
-  CAND1.can = FDCAN1;
   rccEnableFDCAN1(true);  // Stays on in sleep
-
-  // Zero out the SRAM
-  uint32_t * addr;
-  for(addr=(uint32_t *)SRAMCAN_BASE;
-          addr<(uint32_t *)(SRAMCAN_BASE + SRAMCAN_SIZE); addr+=1U)
-  {
-      *addr = (uint32_t) 0U;
-  }
-  //
-  SET_BIT(CAND1.can->CCCR, FDCAN_CCCR_INIT);
-  while(READ_BIT(CAND1.can->CCCR,FDCAN_CCCR_INIT) != 1) {
-    osalThreadSleepS(1);
-  }
-  SET_BIT(CAND1.can->CCCR, FDCAN_CCCR_CCE);
-  can_lld_set_filters(&CAND1, NULL, 0);
-
-
+  _can_lld_init(&CAND1, FDCAN1, (uint32_t *) (SRAMCAN_BASE + 0U * SRAMCAN_SIZE));
+#endif
+#if STM32_CAN_USE_CAN2 == TRUE
+  rccResetFDCAN2();
+  rccEnableFDCAN2(true);  // Stays on in sleep
+  _can_lld_init(&CAND2, FDCAN2, (uint32_t *) (SRAMCAN_BASE + 1U * SRAMCAN_SIZE));
+#endif
+#if STM32_CAN_USE_CAN3 == TRUE
+  rccResetFDCAN3();
+  rccEnableFDCAN3(true);  // Stays on in sleep
+  _can_lld_init(&CAND3, FDCAN3, (uint32_t *) (SRAMCAN_BASE + 2U * SRAMCAN_SIZE));
 #endif
 }
 
@@ -264,6 +300,10 @@ bool can_lld_is_tx_empty(CANDriver *canp, canmbx_t mailbox) {
   }
 }
 
+uint8_t dlc_to_bytes[] = {0, 1, 2, 3, 4, 5, 6, 7, 8,
+  12, 16, 20, 24, 32, 48, 64};
+
+
 /**
  * @brief   Inserts a frame into the transmit queue.
  *
@@ -277,11 +317,10 @@ void can_lld_transmit(CANDriver *canp,
                       canmbx_t mailbox,
                       const CANTxFrame *ctfp) {
 
-  (void)canp;
   (void)mailbox;
-  (void)ctfp;
-  uint32_t *tx_address = (uint32_t *) (SRAMCAN_BASE + SRAMCAN_TFQSA);
-  //WRITE_REG(SRAMCAN_BASE, 0);
+  osalDbgAssert(dlc_to_bytes[ctfp->DLC] <= CAN_MAX_DLC_BYTES,
+      "TX Packet is too large, increase CAN_MAX_DLC_BYTES");
+  uint32_t *tx_address = canp->ram + SRAMCAN_TFQSA;
   WRITE_REG(*tx_address, ctfp->header32[0]);
   tx_address += 1U;
   WRITE_REG(*tx_address, ctfp->header32[1]);
@@ -342,7 +381,8 @@ void can_lld_receive(CANDriver *canp,
   (void)crfp;
   // GET index, add it and the length to the rx_address
   uint32_t get_index = (READ_REG(canp->can->RXF0S) & FDCAN_RXF0S_F0GI_Msk) >> FDCAN_RXF0S_F0GI_Pos;
-  uint32_t *rx_address = (uint32_t *) (SRAMCAN_BASE + SRAMCAN_RF0SA + get_index * 18U);
+  uint32_t *rx_address = canp->ram + SRAMCAN_RF0SA + get_index *
+    (SRAMCAN_RF0_SIZE / 4U);
   crfp->header32[0] = READ_REG(*rx_address); 
   rx_address += 1U;
   crfp->header32[1] = READ_REG(*rx_address); 
