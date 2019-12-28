@@ -282,7 +282,7 @@ struct CANDriver {
 #endif
 #endif
   FDCAN_GlobalTypeDef       *can;
-  uint32_t                  *ram;
+  uint32_t                  *ram_base;
   /* End of the mandatory fields.*/
 };
 

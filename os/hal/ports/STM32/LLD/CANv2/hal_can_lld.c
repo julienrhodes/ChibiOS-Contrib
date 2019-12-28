@@ -30,6 +30,9 @@
 /* Driver local definitions.                                                 */
 /*===========================================================================*/
 
+#define READ_REG_MASK_VALUE(REG, MASK) ((READ_REG(REG) & (MASK ## _Msk)) >> (MASK ## _Pos))
+#define WRITE_REG_MASK_VALUE(REG, MASK, VAL) MODIFY_REG(REG, (MASK ## _Msk), (VAL) << MASK ## _Pos)
+
 #define SRAMCAN_FLS_NBR                  (28U)         /* Max. Filter List Standard Number      */
 #define SRAMCAN_FLE_NBR                  ( 8U)         /* Max. Filter List Extended Number      */
 #define SRAMCAN_RF0_NBR                  ( 3U)         /* RX FIFO 0 Elements Number             */
@@ -109,7 +112,8 @@ static void can_lld_set_filters(CANDriver* canp, CANRxStandardFilter *filter,
     num = 0;
   }
   //WRITE_REG((uint32_t *) *(SRAMCAN_BASE + SRAMCAN_FLSSA), default_filter.word);
-  uint32_t *addr = canp->ram + SRAMCAN_FLSSA + (num * (SRAMCAN_FLS_SIZE / 4U));
+  uint32_t *addr = canp->ram_base + SRAMCAN_FLSSA / sizeof(canp->ram_base);
+  addr += num * (SRAMCAN_FLS_SIZE /  sizeof(canp->ram_base));
   WRITE_REG(*addr, filter->data32);
 
   /*
@@ -118,17 +122,98 @@ static void can_lld_set_filters(CANDriver* canp, CANRxStandardFilter *filter,
           FDCAN_RXGFC_LSS & (SRAMCAN_FLS_NBR << FDCAN_RXGFC_LSS_Pos));
   */
   // Standard filter enable 1 filter
-  MODIFY_REG(canp->can->RXGFC, FDCAN_RXGFC_LSS, (num + 1) << FDCAN_RXGFC_LSS_Pos);
+  //MODIFY_REG(canp->can->RXGFC, FDCAN_RXGFC_LSS, (num + 1) << FDCAN_RXGFC_LSS_Pos);
+  WRITE_REG_MASK_VALUE(canp->can->RXGFC, FDCAN_RXGFC_LSS, num + 1);
 
-  MODIFY_REG(canp->can->RXGFC, FDCAN_RXGFC_ANFE_Msk,
-      canp->config->anfe << FDCAN_RXGFC_ANFE_Pos);
-  MODIFY_REG(canp->can->RXGFC, FDCAN_RXGFC_ANFS_Msk,
-      canp->config->anfs << FDCAN_RXGFC_ANFS_Pos);
+  WRITE_REG_MASK_VALUE(canp->can->RXGFC, FDCAN_RXGFC_ANFE, canp->config->anfe);
+  WRITE_REG_MASK_VALUE(canp->can->RXGFC, FDCAN_RXGFC_ANFS, canp->config->anfs);
+  // MODIFY_REG(canp->can->RXGFC, FDCAN_RXGFC_ANFE_Msk,
+  //     canp->config->anfe << FDCAN_RXGFC_ANFE_Pos);
+  // MODIFY_REG(canp->can->RXGFC, FDCAN_RXGFC_ANFS_Msk,
+  //     canp->config->anfs << FDCAN_RXGFC_ANFS_Pos);
 }
 
+
+/**
+ * @brief   Common RX0 ISR handler.
+ *
+ * @param[in] canp      pointer to the @p CANDriver object
+ *
+ * @notapi
+ */
+static void can_lld_rx0_handler(CANDriver *canp) {
+  //if (can_lld_is_rx_nonempty(canp, 1)) {
+  if (READ_BIT(canp->can->IR, FDCAN_IR_RF0F | FDCAN_IR_RF0N)) {
+    /* No more receive events until the queue 0 has been emptied.*/
+    CLEAR_BIT(canp->can->IE, FDCAN_IE_RF0FE | FDCAN_IE_RF0NE);
+    // Reset the IR bit for full and new frame interrupts
+    SET_BIT(canp->can->IR, FDCAN_IR_RF0F | FDCAN_IR_RF0N);
+    // "full_isr" is actually nonempty or full
+    _can_rx_full_isr(canp, CAN_MAILBOX_TO_MASK(1U));
+  }
+  // Overflow events handling.
+  if (READ_BIT(canp->can->IR, FDCAN_IR_RF0L)) {
+    // Reset the IR bit for lost frame
+    SET_BIT(canp->can->IR, FDCAN_IR_RF0L);
+    _can_error_isr(canp, CAN_OVERFLOW_ERROR);
+  }
+}
+
+
+/**
+ * @brief   Common TX ISR handler.
+ *
+ * @param[in] canp      pointer to the @p CANDriver object
+ *
+ * @notapi
+ */
+static void can_lld_tx_handler(CANDriver *canp) {
+  /* Flags to be signaled through the TX event source.*/
+  eventflags_t flags = 0U;
+
+  if (READ_BIT(canp->can->IR, FDCAN_IR_TC)) {
+    /* Clearing IRQ sources.*/
+    SET_BIT(canp->can->IR, FDCAN_IR_TC);
+    flags |= 1U;
+  }
+
+  if (READ_BIT(canp->can->IR, FDCAN_IR_TEFL)) {
+    /* Clearing IRQ sources.*/
+    SET_BIT(canp->can->IR, FDCAN_IR_TEFL);
+    // Upper 16 indicate errors
+    flags |= 1U << 16;
+  }
+
+  /* Checking TX buffer full status.*/
+  if (READ_BIT(canp->can->TXFQS, FDCAN_TXFQS_TFQF) == 0) {
+    /* Signaling flags and waking up threads waiting for a transmission slot.*/
+    // It seams that error flags should always be broadcast regardless of TX
+    // buffer emptiness. _can_tx_empty_isr always sends MSG_OK, only OK to send
+    // that if there is a slot in TX buffer.
+    _can_tx_empty_isr(canp, flags);
+  }
+
+
+
+}
 /*===========================================================================*/
 /* Driver interrupt handlers.                                                */
 /*===========================================================================*/
+
+/**
+ * @brief   CAN1 Unified interrupt handler.
+ *
+ * @isr
+ */
+OSAL_IRQ_HANDLER(STM32_CAN1_IRQ_HANDLER_0) {
+
+  OSAL_IRQ_PROLOGUE();
+
+  can_lld_rx0_handler(&CAND1);
+  can_lld_tx_handler(&CAND1);
+
+  OSAL_IRQ_EPILOGUE();
+}
 
 /*===========================================================================*/
 /* Driver exported functions.                                                */
@@ -142,36 +227,35 @@ void canConfigObjectInit(CANConfig * config) {
   config->loopback = 0;
 }
 
-void _can_lld_init(CANDriver *CAND, FDCAN_GlobalTypeDef *FDCAN, uint32_t *ram_base) {
+void _can_lld_init(CANDriver *cand, FDCAN_GlobalTypeDef *fdcan, uint32_t *ram_base) {
 
   /* Driver initialization.*/
-  canObjectInit(CAND);
-  CAND->can = FDCAN;
-  CAND->ram = ram_base;
+  canObjectInit(cand);
+  cand->can = fdcan;
+  cand->ram_base = ram_base;
 
-  // TODO: Use memset?
   // Zero out the SRAM
+  // TODO: Use memset?
   uint32_t * addr;
-  for(addr=ram_base;
-          addr<(ram_base + SRAMCAN_SIZE); addr+=1U)
+  for(addr=ram_base; addr<(ram_base + SRAMCAN_SIZE); addr+=1U)
   {
       *addr = (uint32_t) 0U;
   }
-  //
-  SET_BIT(CAND->can->CCCR, FDCAN_CCCR_INIT);
 
+  SET_BIT(cand->can->CCCR, FDCAN_CCCR_INIT);
+
+  // Wait for INIT to begin
   systime_t start = osalOsGetSystemTimeX();
   systime_t end = osalTimeAddX(start, TIME_MS2I(500));
-
-  while(READ_BIT(CAND->can->CCCR,FDCAN_CCCR_INIT) != 1
+  while(READ_BIT(cand->can->CCCR, FDCAN_CCCR_INIT) != 1
       && osalTimeIsInRangeX(osalOsGetSystemTimeX(), start, end)) {
     osalThreadSleepS(1);
   }
-  osalDbgAssert(READ_BIT(CAND->can->CCCR,FDCAN_CCCR_INIT) == 1,
+  osalDbgAssert(READ_BIT(cand->can->CCCR, FDCAN_CCCR_INIT) == 1,
       "CAN1 did not exit init, check clocks and pin config");
 
-  SET_BIT(CAND->can->CCCR, FDCAN_CCCR_CCE);
-  can_lld_set_filters(CAND, NULL, 0);
+  SET_BIT(cand->can->CCCR, FDCAN_CCCR_CCE);
+  can_lld_set_filters(cand, NULL, 0);
 }
 
 /**
@@ -241,10 +325,18 @@ void can_lld_start(CANDriver *canp) {
     SET_BIT(canp->can->TEST, FDCAN_TEST_LBCK);
   }
 
+  nvicEnableVector(FDCAN1_IT0_IRQn, 28); // The default in the manual
+  //Enable interrupts
+  SET_BIT(canp->can->IE, FDCAN_IE_RF0NE | FDCAN_IE_RF0FE | FDCAN_IE_RF0LE | FDCAN_IE_TCE | FDCAN_IE_TEFLE);
+  // Use FDCAN1 interrupt line 0
+  SET_BIT(canp->can->ILE, FDCAN_ILE_EINT0);
+
   // Start it up
   //CLEAR_BIT(canp->can->CCCR, FDCAN_CCCR_CCE); Happens automatically with init
   //clear
   CLEAR_BIT(canp->can->CCCR, FDCAN_CCCR_INIT);
+
+  // TODO: Timeout for exiting INIT
   while(READ_BIT(canp->can->CCCR, FDCAN_CCCR_INIT)) {
     osalThreadSleepS(1);
   }
@@ -261,6 +353,7 @@ void can_lld_stop(CANDriver *canp) {
 
   if (canp->state == CAN_READY) {
     CLEAR_REG(canp->can->IE);
+    WRITE_REG(canp->can->IR, 0xFFF); // Reset all interrupt register
     /* Resets the peripheral.*/
 
     /* Disables the peripheral.*/
@@ -320,16 +413,12 @@ void can_lld_transmit(CANDriver *canp,
   (void)mailbox;
   osalDbgAssert(dlc_to_bytes[ctfp->DLC] <= CAN_MAX_DLC_BYTES,
       "TX Packet is too large, increase CAN_MAX_DLC_BYTES");
-  uint32_t *tx_address = canp->ram + SRAMCAN_TFQSA;
-  WRITE_REG(*tx_address, ctfp->header32[0]);
-  tx_address += 1U;
-  WRITE_REG(*tx_address, ctfp->header32[1]);
-  tx_address += 1U;
+  uint32_t *tx_address = canp->ram_base + SRAMCAN_TFQSA / sizeof(canp->ram_base);
+  WRITE_REG(*tx_address++, ctfp->header32[0]);
+  WRITE_REG(*tx_address++, ctfp->header32[1]);
 
-  WRITE_REG(*tx_address, ctfp->data32[0]);
-  tx_address += 1U;
-  WRITE_REG(*tx_address, ctfp->data32[1]);
-  tx_address += 1U;
+  WRITE_REG(*tx_address++, ctfp->data32[0]);
+  WRITE_REG(*tx_address++, ctfp->data32[1]);
 
   // Add TX request
   SET_BIT(canp->can->TXBAR, 1);
@@ -344,23 +433,21 @@ void can_lld_transmit(CANDriver *canp,
  * @param[in] mailbox   mailbox number, @p CAN_ANY_MAILBOX for any mailbox
  *
  * @return              The queue space availability.
- * @retval false        no space in the transmit queue.
- * @retval true         transmit slot available.
+ * @retval false        RX FIFO\mailbox is empty.
+ * @retval true         RX FIFO\mailbox is not empty.
  *
  * @notapi
  */
 bool can_lld_is_rx_nonempty(CANDriver *canp, canmbx_t mailbox) {
-
-  (void)canp;
-  (void)mailbox;
-
   switch (mailbox) {
-  case CAN_ANY_MAILBOX:
-  case 1:
-  case 2:
-  default:
-    return (!READ_BIT(canp->can->RXF0S, FDCAN_RXF0S_F0F));
+    case CAN_ANY_MAILBOX:
+      return can_lld_is_rx_nonempty(canp, 1) || can_lld_is_rx_nonempty(canp, 2);
+    case 1:
+      return (READ_REG_MASK_VALUE(canp->can->RXF0S, FDCAN_RXF0S_F0FL) != 0);
+    case 2:
+      return (READ_REG_MASK_VALUE(canp->can->RXF1S, FDCAN_RXF1S_F1FL) != 0);
   }
+  return true;
 }
 
 /**
@@ -376,23 +463,35 @@ void can_lld_receive(CANDriver *canp,
                      canmbx_t mailbox,
                      CANRxFrame *crfp) {
 
-  (void)canp;
-  (void)mailbox;
-  (void)crfp;
+  if (mailbox == CAN_ANY_MAILBOX) {
+    if (can_lld_is_rx_nonempty(canp, 1)) {
+      mailbox = 1;
+    }
+    else if (can_lld_is_rx_nonempty(canp, 2)) {
+      mailbox = 2;
+    }
+    else {
+      return;
+    }
+  }
+
   // GET index, add it and the length to the rx_address
-  uint32_t get_index = (READ_REG(canp->can->RXF0S) & FDCAN_RXF0S_F0GI_Msk) >> FDCAN_RXF0S_F0GI_Pos;
-  uint32_t *rx_address = canp->ram + SRAMCAN_RF0SA + get_index *
-    (SRAMCAN_RF0_SIZE / 4U);
-  crfp->header32[0] = READ_REG(*rx_address); 
-  rx_address += 1U;
-  crfp->header32[1] = READ_REG(*rx_address); 
-  rx_address += 1U;
-  crfp->data32[0] = READ_REG(*rx_address); 
-  rx_address += 1U;
-  crfp->data32[1] = READ_REG(*rx_address); 
+  // uint32_t get_index = (READ_REG(canp->can->RXF0S) & FDCAN_RXF0S_F0GI_Msk) >> FDCAN_RXF0S_F0GI_Pos;
+  uint32_t get_index = READ_REG_MASK_VALUE(canp->can->RXF0S, FDCAN_RXF0S_F0GI);
+  uint32_t *rx_address = canp->ram_base + (SRAMCAN_RF0SA + get_index * SRAMCAN_RF0_SIZE) / sizeof(canp->ram_base);
+  crfp->header32[0] = READ_REG(*rx_address++); 
+  crfp->header32[1] = READ_REG(*rx_address++); 
+  crfp->data32[0] = READ_REG(*rx_address++); 
+  crfp->data32[1] = READ_REG(*rx_address++); 
 
   // Acknowledge receipt using RXF0A
   WRITE_REG(canp->can->RXF0A, (get_index << FDCAN_RXF0A_F0AI_Pos) & FDCAN_RXF0A_F0AI_Msk);
+
+  // Re-enable RX FIFO message arrived interrupt once the FIFO is emptied, see
+  // can_lld_rx0_handler.
+  if (!can_lld_is_rx_nonempty(canp, mailbox)) {
+    SET_BIT(canp->can->IE, FDCAN_IE_RF0FE | FDCAN_IE_RF0NE);
+  }
 
 }
 

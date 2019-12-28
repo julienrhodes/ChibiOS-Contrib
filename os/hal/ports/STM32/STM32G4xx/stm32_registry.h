@@ -37,6 +37,13 @@
 /*===========================================================================*/
 /* Common.                                                                   */
 /*===========================================================================*/
+/* CAN attributes.*/
+#define STM32_CAN1_IRQ_HANDLER_0            Vector94
+#define STM32_CAN1_IRQ_HANDLER_1            Vector98
+#define STM32_CAN2_IRQ_HANDLER_0            Vector198
+#define STM32_CAN2_IRQ_HANDLER_1            Vector19C
+#define STM32_CAN3_IRQ_HANDLER_0            Vector1A0
+#define STM32_CAN3_IRQ_HANDLER_1            Vector1A4
 
 /* RNG attributes.*/
 #define STM32_HAS_RNG1                      TRUE

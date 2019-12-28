@@ -80,11 +80,15 @@ int main(void) {
   ctfp.SID = 1;
   ctfp.XTD = 0;
   ctfp.DLC = 8;
-  ctfp.data32[0] = 0x5555beef;
-  ctfp.data32[1] = 0xdead5555;
+  ctfp.data32[0] = 0xdeadbeef;
+  ctfp.data32[1] = 0xdeadbeef;
 
-  my_var = canTryTransmitI(&CAND1, CAN_ANY_MAILBOX, &ctfp);
-  my_var = canTryReceiveI(&CAND1, CAN_ANY_MAILBOX, &crfp);
+  // my_var = canTryTransmitI(&CAND1, CAN_ANY_MAILBOX, &ctfp);
+  msg_t x1;
+  sysinterval_t wait = TIME_MS2I(250);
+  x1 = canTransmitTimeout(&CAND1, CAN_ANY_MAILBOX, &ctfp, wait);
+  // my_var = canTryReceiveI(&CAND1, 1, &crfp);
+  x1 = canReceiveTimeout(&CAND1, CAN_ANY_MAILBOX, &crfp, wait);
 
   while (true) {
    if (palReadLine(LINE_INPUT_A12)) {
