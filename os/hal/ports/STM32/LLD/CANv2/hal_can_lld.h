@@ -134,7 +134,7 @@ typedef struct {
 
 /**
  * @brief   CAN received frame.
- * @note    Accessing the frame data as word16 or word32 is not portable because
+ * @note    Accessing the frame data as data16 or data32 is not portable because
  *          machine data endianness, it can be still useful for a quick filling.
  */
 typedef struct {
@@ -169,6 +169,11 @@ typedef struct {
   };
 } CANRxFrame;
 
+/**
+ * @brief   CAN standard filter.
+ * @note    Accessing the frame data as data16 or data32 is not portable because
+ *          machine data endianness, it can be still useful for a quick filling.
+ */
 typedef struct {
   union {
     struct {
@@ -178,21 +183,46 @@ typedef struct {
       uint8_t               SFEC:3;
       uint8_t               SFT:2;
     };
-    uint32_t                data32;
+    union {
+      uint32_t              data32;
+      uint16_t              data16[2];
+      uint8_t               data8[4];
+    };
   };
 } CANRxStandardFilter;
+
+
+/**
+ * @brief   CAN extended filter.
+ * @note    Accessing the frame data as data16 or data32 is not portable because
+ *          machine data endianness, it can be still useful for a quick filling.
+ */
+typedef struct {
+  union {
+    struct {
+      uint32_t              EFID1:29;
+      uint8_t               EFEC:3;
+      uint32_t              EFID2:29;
+      uint8_t               _R1:1;
+      uint8_t               EFT:2;
+    };
+    union {
+      uint32_t              data32[2];
+      uint16_t              data16[4];
+      uint8_t               data8[8];
+    };
+  };
+} CANRxExtendedFilter;
 
 /**
  * @brief   Driver configuration structure.
  */
-
 typedef struct {
-  /* End of the mandatory fields.*/
-  uint32_t                  anfs;  // Accept non-masked standard messages
-  uint32_t                  anfe;  // Accept non-masked extended messages
-  uint32_t                  dar;  // Disable automatic reply
-  uint8_t                   loopback;  //
-  uint8_t                   monitor;  //
+  bool                      anfs;     /* Accept non-masked standard messages */
+  bool                      anfe;     /* Accept non-masked extended messages */
+  bool                      dar;      /* Disable automatic reply */
+  bool                      loopback;
+  bool                      monitor;
 } CANConfig;
 
 void canConfigObjectInit(CANConfig * config);
