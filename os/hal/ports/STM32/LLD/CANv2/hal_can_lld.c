@@ -87,6 +87,7 @@ CANDriver CAND3;
 /*===========================================================================*/
 
 #define TIMEOUT_INIT_MS 250
+#define TIMEOUT_CSA_MS 250
 
 /*===========================================================================*/
 /* Driver local functions.                                                   */
@@ -321,6 +322,7 @@ void can_lld_start(CANDriver *canp) {
 
   SET_BIT(canp->can->CCCR, FDCAN_CCCR_CCE);
 
+  /* Update peripheral configuration to match requested config */
   if (canp->config->dar) {
     SET_BIT(canp->can->CCCR, FDCAN_CCCR_DAR);
   }
@@ -331,6 +333,12 @@ void can_lld_start(CANDriver *canp) {
   if (canp->config->loopback) {
     SET_BIT(canp->can->CCCR, FDCAN_CCCR_TEST);
     SET_BIT(canp->can->TEST, FDCAN_TEST_LBCK);
+  }
+  if (canp->config->fd) {
+    SET_BIT(canp->can->CCCR, FDCAN_CCCR_FDOE);
+  }
+  if (canp->config->brs) {
+    SET_BIT(canp->can->CCCR, FDCAN_CCCR_BRSE);
   }
 
   /* The default priority is 28 in the reference manual */
@@ -343,7 +351,7 @@ void can_lld_start(CANDriver *canp) {
   /* Start it up */
   CLEAR_BIT(canp->can->CCCR, FDCAN_CCCR_INIT);
 
-  /* Wait for INIT to begin; CCE clears automatically with INIT */
+  /* Wait for INIT to clear; CCE clears automatically with INIT */
   start = osalOsGetSystemTimeX();
   end = osalTimeAddX(start, TIME_MS2I(TIMEOUT_INIT_MS));
   while(READ_BIT(canp->can->CCCR, FDCAN_CCCR_INIT) != 0
@@ -391,6 +399,7 @@ void can_lld_stop(CANDriver *canp) {
  * @notapi
  */
 bool can_lld_is_tx_empty(CANDriver *canp, canmbx_t mailbox) {
+  (void)mailbox;
   return (READ_BIT(canp->can->TXFQS, FDCAN_TXFQS_TFQF) == 0);
 }
 
@@ -444,8 +453,9 @@ bool can_lld_is_rx_nonempty(CANDriver *canp, canmbx_t mailbox) {
       return (READ_REG_MASK_VALUE(canp->can->RXF0S, FDCAN_RXF0S_F0FL) != 0);
     case 2:
       return (READ_REG_MASK_VALUE(canp->can->RXF1S, FDCAN_RXF1S_F1FL) != 0);
+    default:
+      return false;
   }
-  return true;
 }
 
 /**
@@ -481,7 +491,7 @@ void can_lld_receive(CANDriver *canp,
   crfp->data32[0] = READ_REG(*rx_address++); 
   crfp->data32[1] = READ_REG(*rx_address++); 
 
-  /* Acknowledge receipt using RXF0A */
+  /* Acknowledge receipt by writing the get-index to the acknowledge register RXF0A */
   WRITE_REG(canp->can->RXF0A, (get_index << FDCAN_RXF0A_F0AI_Pos) & FDCAN_RXF0A_F0AI_Msk);
 
   /* Re-enable RX FIFO message arrived interrupt once the FIFO is emptied, see
@@ -517,7 +527,19 @@ void can_lld_abort(CANDriver *canp,
  */
 void can_lld_sleep(CANDriver *canp) {
 
-  (void)canp;
+  SET_BIT(canp->can->CCCR, FDCAN_CCCR_CSR);
+
+  /* Wait for CSA */
+  systime_t start = osalOsGetSystemTimeX();
+  systime_t end = osalTimeAddX(start, TIME_MS2I(TIMEOUT_CSA_MS));
+  while(READ_BIT(canp->can->CCCR, FDCAN_CCCR_CSA) == 0
+      && osalTimeIsInRangeX(osalOsGetSystemTimeX(), start, end)) {
+    osalThreadSleepS(1);
+  }
+  osalDbgAssert(READ_BIT(canp->can->CCCR, FDCAN_CCCR_CSA) != 0,
+      "CAN did not ack CSR");
+
+  /* If CSA is 1, module clock may be suspended */
 
 }
 
@@ -530,10 +552,32 @@ void can_lld_sleep(CANDriver *canp) {
  */
 void can_lld_wakeup(CANDriver *canp) {
 
-  (void)canp;
+  /* Resume module clock here */
+
+  CLEAR_BIT(canp->can->CCCR, FDCAN_CCCR_CSR);
+  /* Wait for CSA to clear*/
+  systime_t start = osalOsGetSystemTimeX();
+  systime_t end = osalTimeAddX(start, TIME_MS2I(TIMEOUT_CSA_MS));
+  while(READ_BIT(canp->can->CCCR, FDCAN_CCCR_CSA) != 0
+      && osalTimeIsInRangeX(osalOsGetSystemTimeX(), start, end)) {
+    osalThreadSleepS(1);
+  }
+  osalDbgAssert(READ_BIT(canp->can->CCCR, FDCAN_CCCR_CSA) == 0,
+      "CAN did not de-assert CSA");
+
+  CLEAR_BIT(canp->can->CCCR, FDCAN_CCCR_INIT);
+  /* Wait for INIT to de-assert */
+  start = osalOsGetSystemTimeX();
+  end = osalTimeAddX(start, TIME_MS2I(TIMEOUT_INIT_MS));
+  while(READ_BIT(canp->can->CCCR, FDCAN_CCCR_INIT) != 0
+      && osalTimeIsInRangeX(osalOsGetSystemTimeX(), start, end)) {
+    osalThreadSleepS(1);
+  }
+  osalDbgAssert(READ_BIT(canp->can->CCCR, FDCAN_CCCR_INIT) == 0,
+      "CAN did not exit init, check clocks and pin config");
 
 }
-#endif /* CAN_USE_SLEEP_MOD == TRUEE */
+#endif /* CAN_USE_SLEEP_MOD == TRUE */
 
 #endif /* HAL_USE_CAN == TRUE */
 

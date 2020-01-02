@@ -223,6 +223,8 @@ typedef struct {
   bool                      dar;      /* Disable automatic reply */
   bool                      loopback;
   bool                      monitor;
+  bool                      brs;      /* Bit-rate switching */
+  bool                      fd;       /* Flexible Datarate CAN */
 } CANConfig;
 
 void canConfigObjectInit(CANConfig * config);
