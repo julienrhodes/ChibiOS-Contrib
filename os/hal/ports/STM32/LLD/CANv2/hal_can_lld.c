@@ -143,18 +143,20 @@ static void can_lld_set_filters(CANDriver* canp, CANRxStandardFilter *filter,
  * @notapi
  */
 static void can_lld_rx0_handler(CANDriver *canp) {
-  if (READ_BIT(canp->can->IR, FDCAN_IR_RF0F | FDCAN_IR_RF0N)) {
+  if (READ_BIT(canp->can->IR, FDCAN_IR_RF0N)) {
+  //if (READ_BIT(canp->can->IR, FDCAN_IR_RF0F | FDCAN_IR_RF0N) &&
+  //    READ_REG_MASK_VALUE(canp->can->RXF0S, FDCAN_RXF0S_F0FL) != 0) {
     /* No more receive events until the queue 0 has been emptied.*/
-    CLEAR_BIT(canp->can->IE, FDCAN_IE_RF0FE | FDCAN_IE_RF0NE);
+    CLEAR_BIT(canp->can->IE, FDCAN_IE_RF0NE);
     /* Reset the IR bit for full and new frame interrupts */
-    SET_BIT(canp->can->IR, FDCAN_IR_RF0F | FDCAN_IR_RF0N);
+    canp->can->IR = FDCAN_IR_RF0N;
     /* "full_isr" is actually nonempty or full */
     _can_rx_full_isr(canp, CAN_MAILBOX_TO_MASK(1U));
   }
   /* Overflow events handling. */
   if (READ_BIT(canp->can->IR, FDCAN_IR_RF0L)) {
     /* Reset the IR bit for lost frame */
-    SET_BIT(canp->can->IR, FDCAN_IR_RF0L);
+    canp->can->IR = FDCAN_IR_RF0L;
     _can_error_isr(canp, CAN_OVERFLOW_ERROR);
   }
 }
@@ -174,14 +176,14 @@ static void can_lld_tx_handler(CANDriver *canp) {
   /* Transmission completed */
   if (READ_BIT(canp->can->IR, FDCAN_IR_TC)) {
     /* Clearing flag by setting to 1. */
-    SET_BIT(canp->can->IR, FDCAN_IR_TC);
+    canp->can->IR = FDCAN_IR_TC;
     flags |= 1U;
   }
 
-  /* Transmission event complete */
+  /* Transmission event element lost */
   if (READ_BIT(canp->can->IR, FDCAN_IR_TEFL)) {
     /* Clearing flag by setting to 1. */
-    SET_BIT(canp->can->IR, FDCAN_IR_TEFL);
+    canp->can->IR = FDCAN_IR_TEFL;
     /* Upper 16 bits indicate errors */
     flags |= 1U << 16;
   }
@@ -344,9 +346,9 @@ void can_lld_start(CANDriver *canp) {
   /* The default priority is 28 in the reference manual */
   nvicEnableVector(FDCAN1_IT0_IRQn, 28);
   /* Enable interrupts */
-  SET_BIT(canp->can->IE, FDCAN_IE_RF0NE | FDCAN_IE_RF0FE | FDCAN_IE_RF0LE | FDCAN_IE_TCE | FDCAN_IE_TEFLE);
-  /* Use FDCAN1 interrupt line 0 */
-  SET_BIT(canp->can->ILE, FDCAN_ILE_EINT0);
+  SET_BIT(canp->can->IE, FDCAN_IE_RF0NE | FDCAN_IE_RF0LE | FDCAN_IE_TCE | FDCAN_IE_TEFLE);
+  /* Use FDCAN1 interrupt line 0 and 1? */
+  SET_BIT(canp->can->ILE, FDCAN_ILE_EINT0 | FDCAN_ILE_EINT1);
 
   /* Start it up */
   CLEAR_BIT(canp->can->CCCR, FDCAN_CCCR_INIT);
@@ -484,7 +486,7 @@ void can_lld_receive(CANDriver *canp,
   }
 
   /* GET index, add it and the length to the rx_address */
-  uint32_t get_index = READ_REG_MASK_VALUE(canp->can->RXF0S, FDCAN_RXF0S_F0GI);
+  uint8_t get_index = READ_REG_MASK_VALUE(canp->can->RXF0S, FDCAN_RXF0S_F0GI);
   uint32_t *rx_address = canp->ram_base + (SRAMCAN_RF0SA + get_index * SRAMCAN_RF0_SIZE) / sizeof(canp->ram_base);
   crfp->header32[0] = READ_REG(*rx_address++); 
   crfp->header32[1] = READ_REG(*rx_address++); 
@@ -496,8 +498,9 @@ void can_lld_receive(CANDriver *canp,
 
   /* Re-enable RX FIFO message arrived interrupt once the FIFO is emptied, see
    * can_lld_rx0_handler. */
+  //if (READ_REG_MASK_VALUE(canp->can->RXF0S, FDCAN_RXF0S_F0FL) == 0) {
   if (!can_lld_is_rx_nonempty(canp, mailbox)) {
-    SET_BIT(canp->can->IE, FDCAN_IE_RF0FE | FDCAN_IE_RF0NE);
+    SET_BIT(canp->can->IE, FDCAN_IE_RF0NE);
   }
 
 }

@@ -82,11 +82,12 @@ void test_poll_interface_and_events(CANRxFrame *crfp, CANTxFrame *ctfp) {
 
   osalDbgCheck(canTryReceiveI(&CAND1, 1, crfp) == false);
   osalDbgCheck(canTryReceiveI(&CAND1, 1, crfp) == false);
+  osalThreadSleepS(TIME_MS2I(CAN_LPBK_ROUNDTRIP_MS));
   osalDbgCheck(canTryReceiveI(&CAND1, 1, crfp) == false);
   osalDbgCheck(canTryReceiveI(&CAND1, 1, crfp) == true);
-  osalDbgCheck(chEvtGetAndClearFlags(&rx_nonempty) == 1);
+  //osalDbgCheck(chEvtGetAndClearFlags(&rx_nonempty) == 0);
 
-  chEvtUnregister(&CAND1.rxfull_event, &rx_nonempty);
+  //chEvtUnregister(&CAND1.rxfull_event, &rx_nonempty);
 }
 
 /*
@@ -149,8 +150,17 @@ int main(void) {
 
   /* Test Interrupt-based interface */
   sysinterval_t wait = TIME_MS2I(CAN_LPBK_ROUNDTRIP_MS);
+  uint32_t one_rx = CAND1.can->RXF0S;
+  uint32_t one_ir = CAND1.can->IR;
+  uint32_t one_ie = CAND1.can->IE;
   osalDbgCheck(canTransmitTimeout(&CAND1, CAN_ANY_MAILBOX, &ctf, wait) == MSG_OK);
+  uint32_t two_rx = CAND1.can->RXF0S;
+  uint32_t two_ir = CAND1.can->IR;
+  uint32_t two_ie = CAND1.can->IE;
   osalDbgCheck(canReceiveTimeout(&CAND1, CAN_ANY_MAILBOX, &crf, wait) == MSG_OK);
+  uint32_t three_rx = CAND1.can->RXF0S;
+  uint32_t three_ir = CAND1.can->IR;
+  uint32_t three_ie = CAND1.can->IE;
 
   osalDbgCheck(crf.SID == ctf.SID);
   osalDbgCheck(crf.data32[0] == ctf.data32[0]);
