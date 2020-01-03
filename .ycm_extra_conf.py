@@ -52,6 +52,7 @@ flags = [
     '-I', '/home/julien/Documents/git/3rd/ChibiOS-RT/os/hal/ports/STM32/STM32G4xx',
     '-I', '/home/julien/Documents/git/3rd/ChibiOS-RT/os/hal/include/hal_can.h',
     '-I', '/home/julien/Documents/git/3rd/ChibiOS-RT/os/rt/include/chevents.h',
+    '-I', '/home/julien/Documents/git/3rd/ChibiOS-RT/os/rt/include/chmtx.h',
     '-I', '/home/julien/Documents/git/3rd/ChibiOS-Contrib/os/hal/ports/STM32/LLD/CANv2',
     '-I', '/home/julien/Documents/git/3rd/ChibiOS-RT/os/hal/ports/STM32/LLD/DACv1',
     '-I', '/home/julien/Documents/git/3rd/ChibiOS-RT/os/hal/ports/STM32/LLD/DMAv1',

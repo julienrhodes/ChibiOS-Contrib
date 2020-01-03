@@ -20,7 +20,7 @@
 #include "oslib_test_root.h"
 
 /* The looback time should be calculated based on bitrates and frame sizes */
-#define CAN_LPBK_ROUNDTRIP_MS 10
+#define CAN_LPBK_ROUNDTRIP_TICKS TIME_MS2I(10)
 
 /*
  * Green LED blinker thread, times are in milliseconds.
@@ -39,8 +39,10 @@ static THD_FUNCTION(Thread1, arg) {
   }
 }
 
-
-void test_poll_interface_and_events(CANRxFrame *crfp, CANTxFrame *ctfp) {
+/*
+ * Test the CAN polling interface and rxfull_event functions.
+ */
+static void test_poll_interface_and_events(CANRxFrame *crfp, CANTxFrame *ctfp) {
   event_listener_t rx_nonempty;
   chEvtRegister(&CAND1.rxfull_event, &rx_nonempty, EVENT_MASK(0));
 
@@ -52,7 +54,7 @@ void test_poll_interface_and_events(CANRxFrame *crfp, CANTxFrame *ctfp) {
   /* TX buffer should  be empty, false indicates empty TX buffer */
   osalDbgCheck(canTryTransmitI(&CAND1, CAN_ANY_MAILBOX, ctfp) == false);
   /* Wait for loopback packet to show up in RX buffer */
-  osalThreadSleepS(TIME_MS2I(CAN_LPBK_ROUNDTRIP_MS));
+  osalThreadSleepS(CAN_LPBK_ROUNDTRIP_TICKS);
   osalDbgCheck(canTryReceiveI(&CAND1, 1, crfp) == false);
   osalDbgCheck(crfp->SID == ctfp->SID);
   osalDbgCheck(crfp->data32[0] == ctfp->data32[0]);
@@ -62,32 +64,39 @@ void test_poll_interface_and_events(CANRxFrame *crfp, CANTxFrame *ctfp) {
   /* Buffer should now be empty again */
   osalDbgCheck(chEvtGetAndClearFlags(&rx_nonempty) == 0);
 
+  /* Fill up RX FIFO with 3 messages */
   osalDbgCheck(canTryTransmitI(&CAND1, CAN_ANY_MAILBOX, ctfp) == false);
-
   /* Message transmit, loopback, reception is not instantaneous! */
-  osalThreadSleepS(TIME_MS2I(CAN_LPBK_ROUNDTRIP_MS));
+  osalThreadSleepS(CAN_LPBK_ROUNDTRIP_TICKS);
   osalDbgCheck(chEvtGetAndClearFlags(&rx_nonempty) != 0);
-
   /* Event does not get set again until after re-enabling the interrupt (by
    * receiving all frames in the RX FIFO) */
   osalDbgCheck(canTryTransmitI(&CAND1, CAN_ANY_MAILBOX, ctfp) == false);
-  osalThreadSleepS(TIME_MS2I(CAN_LPBK_ROUNDTRIP_MS));
-  osalDbgCheck(chEvtGetAndClearFlags(&rx_nonempty) == 0);
-
+  osalThreadSleepS(CAN_LPBK_ROUNDTRIP_TICKS);
   osalDbgCheck(canTryTransmitI(&CAND1, CAN_ANY_MAILBOX, ctfp) == false);
-  osalThreadSleepS(TIME_MS2I(CAN_LPBK_ROUNDTRIP_MS));
+  osalThreadSleepS(CAN_LPBK_ROUNDTRIP_TICKS);
+  osalDbgCheck(chEvtGetAndClearFlags(&rx_nonempty) == 0);
+  /* Buffer should now be full */
+  osalDbgCheck(canTryReceiveI(&CAND1, 1, crfp) == false);
+  osalDbgCheck(canTryReceiveI(&CAND1, 1, crfp) == false);
+  osalDbgCheck(canTryReceiveI(&CAND1, 1, crfp) == false);
+  /* Buffer should now be empty */
+  osalDbgCheck(canTryReceiveI(&CAND1, 1, crfp) == true);
   osalDbgCheck(chEvtGetAndClearFlags(&rx_nonempty) == 0);
 
-  /* Buffer should now be full */
+  chEvtUnregister(&CAND1.rxfull_event, &rx_nonempty);
+}
 
-  osalDbgCheck(canTryReceiveI(&CAND1, 1, crfp) == false);
-  osalDbgCheck(canTryReceiveI(&CAND1, 1, crfp) == false);
-  osalThreadSleepS(TIME_MS2I(CAN_LPBK_ROUNDTRIP_MS));
-  osalDbgCheck(canTryReceiveI(&CAND1, 1, crfp) == false);
-  osalDbgCheck(canTryReceiveI(&CAND1, 1, crfp) == true);
-  //osalDbgCheck(chEvtGetAndClearFlags(&rx_nonempty) == 0);
+/*
+ * Test Interrupt-based interface.
+ */
+static void test_irq_interface(CANRxFrame *crfp, CANTxFrame *ctfp) {
+  osalDbgCheck(canTransmitTimeout(&CAND1, 1, ctfp, CAN_LPBK_ROUNDTRIP_TICKS) == MSG_OK);
+  osalDbgCheck(canReceiveTimeout(&CAND1, 1, crfp, CAN_LPBK_ROUNDTRIP_TICKS) == MSG_OK);
 
-  //chEvtUnregister(&CAND1.rxfull_event, &rx_nonempty);
+  osalDbgCheck(crfp->SID == ctfp->SID);
+  osalDbgCheck(crfp->data32[0] == ctfp->data32[0]);
+  osalDbgCheck(crfp->data32[1] == ctfp->data32[1]);
 }
 
 /*
@@ -116,13 +125,13 @@ int main(void) {
 
   /* Config for FDCAN peripheral */
   CANConfig test = {
-    .anfs = 1,  // Accept unmatched standard packets in FIFO0
-    .anfe = 1,  // Accept unmatched extended packets in FIFO0
-    .dar = 0, // Disable automatic reply
-    .monitor = 1, // Disable TX pin
-    .loopback = 1, // Enable loopack
-    .brs = 1, // Enable bit-rate switching
-    .fd = 1, // Enable CANFD
+    .anfs = 1,      /* Accept unmatched standard packets in FIFO0 */
+    .anfe = 1,      /* Accept unmatched extended packets in FIFO0 */
+    .dar = 0,       /* Disable automatic reply */
+    .monitor = 1,   /* Disable TX pin */
+    .loopback = 1,  /* Enable loopack */
+    .brs = 1,       /* Enable bit-rate switching */
+    .fd = 1,        /* Enable CANFD */
   };
 
   /* Start CAN and apply the configuration in test */
@@ -148,23 +157,7 @@ int main(void) {
   crf.data32[0] = 0;
   crf.data32[0] = 1;
 
-  /* Test Interrupt-based interface */
-  sysinterval_t wait = TIME_MS2I(CAN_LPBK_ROUNDTRIP_MS);
-  uint32_t one_rx = CAND1.can->RXF0S;
-  uint32_t one_ir = CAND1.can->IR;
-  uint32_t one_ie = CAND1.can->IE;
-  osalDbgCheck(canTransmitTimeout(&CAND1, CAN_ANY_MAILBOX, &ctf, wait) == MSG_OK);
-  uint32_t two_rx = CAND1.can->RXF0S;
-  uint32_t two_ir = CAND1.can->IR;
-  uint32_t two_ie = CAND1.can->IE;
-  osalDbgCheck(canReceiveTimeout(&CAND1, CAN_ANY_MAILBOX, &crf, wait) == MSG_OK);
-  uint32_t three_rx = CAND1.can->RXF0S;
-  uint32_t three_ir = CAND1.can->IR;
-  uint32_t three_ie = CAND1.can->IE;
-
-  osalDbgCheck(crf.SID == ctf.SID);
-  osalDbgCheck(crf.data32[0] == ctf.data32[0]);
-  osalDbgCheck(crf.data32[1] == ctf.data32[1]);
+  test_irq_interface(&crf, &ctf);
 
   while (true) {
    if (palReadLine(LINE_INPUT_A12)) {
@@ -173,6 +166,6 @@ int main(void) {
    else {
       BLINK_SLEEP = 125;
    }
-   //chThdSleepMilliseconds(250);
+   chThdSleepMilliseconds(250);
  }
 }

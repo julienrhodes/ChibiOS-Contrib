@@ -229,6 +229,8 @@ void canConfigObjectInit(CANConfig * config) {
   config->dar = 0;
   config->monitor = 0;
   config->loopback = 0;
+  config->fd = 1;
+  config->brs = 1;
 }
 
 void _can_lld_init(CANDriver *canp, FDCAN_GlobalTypeDef *fdcan, uint32_t *ram_base) {
@@ -500,6 +502,7 @@ void can_lld_receive(CANDriver *canp,
    * can_lld_rx0_handler. */
   //if (READ_REG_MASK_VALUE(canp->can->RXF0S, FDCAN_RXF0S_F0FL) == 0) {
   if (!can_lld_is_rx_nonempty(canp, mailbox)) {
+    canp->can->IR = FDCAN_IR_RF0N;
     SET_BIT(canp->can->IE, FDCAN_IE_RF0NE);
   }
 
